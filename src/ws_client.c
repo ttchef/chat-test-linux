@@ -111,7 +111,6 @@ int main(int argc, char *argv[]) {
         headless = 1;
     }
 
-
     struct addrinfo hints = {0};
     struct addrinfo *result;
 
