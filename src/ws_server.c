@@ -7,11 +7,17 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <poll.h>
 #include "sha1.h"
 
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 4096
+
+typedef struct {
+    int id;
+    char name[64];
+} Client;
 
 // WebSocket handshake validation
 int ws_handshake(unsigned char *buffer, int len) {
@@ -86,27 +92,57 @@ int ws_encode_frame(const char *payload, int len, unsigned char *frame) {
 }
 
 int main(int argc, char *argv[]) {
+    // Allocate Clients
+    Client clients[MAX_CLIENTS];
+    int clients_index = 0;
+
     char *test_msg = NULL;
+    char *host = "0.0.0.0";  // Default to all interfaces
 
     // Parse args
-    if (argc > 2 && strcmp(argv[1], "-m") == 0) {
-        test_msg = argv[2];
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) {
+            test_msg = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], "-h") == 0 && i + 1 < argc) {
+            host = argv[i + 1];
+            i++;
+        }
     }
 
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    // Resolve host address
+    struct addrinfo hints = {0};
+    struct addrinfo *result;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    if (getaddrinfo(host, "9999", &hints, &result) != 0) {
+        fprintf(stderr, "Failed to resolve host: %s\n", host);
+        return 1;
+    }
+
+    int server_fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+    if (server_fd < 0) {
+        perror("socket failed");
+        freeaddrinfo(result);
+        return 1;
+    }
+
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    struct sockaddr_in addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(9999),
-        .sin_addr.s_addr = INADDR_ANY
-    };
+    if (bind(server_fd, result->ai_addr, result->ai_addrlen) < 0) {
+        perror("bind failed");
+        close(server_fd);
+        freeaddrinfo(result);
+        return 1;
+    }
 
-    bind(server_fd, (struct sockaddr*)&addr, sizeof(addr));
+    freeaddrinfo(result);
     listen(server_fd, 10);
 
-    printf("WebSocket server listening on 0.0.0.0:9999\n");
+    printf("WebSocket server listening on %s:9999\n", host);
     fflush(stdout);
 
     struct pollfd fds[MAX_CLIENTS + 1];
@@ -131,6 +167,12 @@ int main(int argc, char *argv[]) {
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
+
+                // Init Client
+                clients[clients_index].id = client_fd;
+                char name[] = "Anonym\0";
+                memcpy(clients[clients_index].name, name, sizeof(name));
+                clients_index++;
 
                 fds[nfds].fd = client_fd;
                 fds[nfds].events = POLLIN;
@@ -205,6 +247,16 @@ int main(int argc, char *argv[]) {
                     if (payload_len > 0) {
                         printf("Received: %s", payload);
                         fflush(stdout);
+
+                        // very safe btw
+                        // is a id verification
+                        if (strncmp(payload, "[ID]", 4) == 0) {
+                            for (int k = 0; k < clients_index; k++) {
+                                if (clients[k].id == fds[i].fd) {
+                                    snprintf(clients[k].name, sizeof(clients[k].name), "%s", payload + 5);
+                                }
+                            }
+                        }
 
                         // Broadcast to all other clients
                         unsigned char frame[BUFFER_SIZE];
