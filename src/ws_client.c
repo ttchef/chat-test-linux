@@ -104,11 +104,27 @@ int ws_client_handshake(int sockfd, const char *host) {
 int main(int argc, char *argv[]) {
     char *test_msg = NULL;
     int headless = 0;
+    int chat_log = 0;
+    const char* log_file_name = "chat_log.log";
+    FILE* file = NULL;
 
     // Parse args
     if (argc > 2 && strcmp(argv[1], "-m") == 0) {
         test_msg = argv[2];
         headless = 1;
+    }
+    if (argc > 2 && strcmp(argv[1], "-s") == 0) {
+        chat_log = 1;
+    }
+
+    // Create Log File
+    if (chat_log) {
+        file = fopen(log_file_name, "w");
+        if (!file) {
+            fprintf(stderr, "Failed to create chat_log.log file try running withoug -s flag!\n");
+            return -1;
+        }
+        fclose(file);
     }
 
     struct addrinfo hints = {0};
@@ -197,6 +213,17 @@ int main(int argc, char *argv[]) {
                 char payload[BUFFER_SIZE];
                 int payload_len = ws_decode_frame(buffer, len, payload);
                 if (payload_len > 0) {
+                    // Add to chat_log file
+                    if (chat_log) {
+                        FILE* file = fopen(log_file_name, "a");
+                        if (!file) {
+                            fprintf(stderr, "Failed to open %s try running without -s flag!\n", log_file_name);
+                            return -1;
+                        }
+                        fprintf(file, "%s\n", payload);
+                        fclose(file);
+                    }    
+
                     printf("Received: %s", payload);
                     fflush(stdout);
                     received_response = 1;
