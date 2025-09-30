@@ -109,22 +109,45 @@ int main(int argc, char *argv[]) {
     FILE* file = NULL;
     char *name = NULL;
     int name_type = 0;
+    char *host = NULL;
+    char *port = NULL;
+    int port_specified = 0;
+    int host_specified = 0;
 
     // Parse args
-    if (argc > 2 && strcmp(argv[1], "-m") == 0) {
-        test_msg = argv[2];
-        headless = 1;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) {
+            test_msg = argv[i + 1];
+            headless = 1;
+            i++;
+        } else if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
+            name_type = 1;
+            name = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], "-s") == 0) {
+            printf("Running client with logging\n");
+            chat_log = 1;
+        } else if (strcmp(argv[i], "-h") == 0 && i + 1 < argc) {
+            host = argv[i + 1];
+            host_specified = 1;
+            i++;
+        } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+            port = argv[i + 1];
+            port_specified = 1;
+            i++;
+        }
     }
 
-    // Id
-    if (argc > 2 && strcmp(argv[1], "-n") == 0) {
-        name_type = 1;
-        name = argv[2];
+    // Set defaults based on what was specified
+    if (!host_specified) {
+        host = IP;  // Default from ip.h
+        if (!port_specified) {
+            port = "80";  // Use 80 for Cloudflare tunnel when using IP from ip.h
+        }
     }
 
-    if (argc > 1 && strcmp(argv[1], "-s") == 0) {
-        printf("Running client with logging\n");
-        chat_log = 1;
+    if (!port) {
+        port = "9999";  // Default to 9999 for local development
     }
 
     // Create Log File
@@ -144,8 +167,7 @@ int main(int argc, char *argv[]) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
-    // Use port 80 for Cloudflare tunnel HTTP
-    if (getaddrinfo(IP, "80", &hints, &result) != 0) {
+    if (getaddrinfo(host, port, &hints, &result) != 0) {
         perror("getaddrinfo failed");
         return 1;
     }
@@ -166,11 +188,11 @@ int main(int argc, char *argv[]) {
 
     freeaddrinfo(result);
 
-    printf("Connected to server at %s:80\n", IP);
+    printf("Connected to server at %s:%s\n", host, port);
     fflush(stdout);
 
     // Perform WebSocket handshake
-    if (ws_client_handshake(sockfd, IP) < 0) {
+    if (ws_client_handshake(sockfd, host) < 0) {
         fprintf(stderr, "WebSocket handshake failed\n");
         close(sockfd);
         return 1;
