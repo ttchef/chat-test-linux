@@ -6,6 +6,8 @@
 #include <netdb.h>
 #include <poll.h>
 #include <time.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include "ip.h"
 
@@ -141,13 +143,17 @@ int main(int argc, char *argv[]) {
     // Set defaults based on what was specified
     if (!host_specified) {
         host = IP;  // Default from ip.h
-        if (!port_specified) {
-            port = "80";  // Use 80 for Cloudflare tunnel when using IP from ip.h
-        }
     }
 
-    if (!port) {
-        port = "9999";  // Default to 9999 for local development
+    if (!port_specified) {
+        // If host is localhost/127.0.0.1, use 9999, otherwise use 80
+        if (host && (strcmp(host, "localhost") == 0 ||
+                     strcmp(host, "127.0.0.1") == 0 ||
+                     strcmp(host, "0.0.0.0") == 0)) {
+            port = "9999";
+        } else {
+            port = "80";  // Default for remote hosts (Cloudflare tunnels)
+        }
     }
 
     // Create Log File
@@ -179,12 +185,51 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (connect(sockfd, result->ai_addr, result->ai_addrlen) < 0) {
+    // Set socket to non-blocking for connection timeout
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+
+    // Attempt connection
+    int conn_result = connect(sockfd, result->ai_addr, result->ai_addrlen);
+    if (conn_result < 0 && errno != EINPROGRESS) {
         perror("connect failed");
         close(sockfd);
         freeaddrinfo(result);
         return 1;
     }
+
+    // Wait for connection with timeout (10 seconds)
+    if (errno == EINPROGRESS) {
+        struct pollfd pfd = {sockfd, POLLOUT, 0};
+        int poll_result = poll(&pfd, 1, 10000);  // 10 second timeout
+
+        if (poll_result == 0) {
+            fprintf(stderr, "Connection timeout to %s:%s\n", host, port);
+            close(sockfd);
+            freeaddrinfo(result);
+            return 1;
+        }
+
+        if (poll_result < 0) {
+            perror("poll failed");
+            close(sockfd);
+            freeaddrinfo(result);
+            return 1;
+        }
+
+        // Check if connection succeeded
+        int error;
+        socklen_t len = sizeof(error);
+        if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error != 0) {
+            fprintf(stderr, "Connection failed to %s:%s: %s\n", host, port, strerror(error));
+            close(sockfd);
+            freeaddrinfo(result);
+            return 1;
+        }
+    }
+
+    // Set socket back to blocking
+    fcntl(sockfd, F_SETFL, flags);
 
     freeaddrinfo(result);
 
