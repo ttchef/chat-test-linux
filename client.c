@@ -11,15 +11,13 @@ int main() {
 
     int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
 
-    struct sockaddr_in6 address = {
-        AF_INET6,
-        htons(9999),
-        0
-    };
+    struct sockaddr_in6 address = {0};
+    address.sin6_family = AF_INET6;
+    address.sin6_port = htons(9999);
+    address.sin6_addr = in6addr_any;
 
     inet_pton(AF_INET6, IP, &address.sin6_addr);
     connect(sockfd, (struct sockaddr*)&address, sizeof(address));
-
 
     // stdin == 0
     struct pollfd fds[2] = {
