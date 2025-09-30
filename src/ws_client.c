@@ -105,8 +105,10 @@ int main(int argc, char *argv[]) {
     char *test_msg = NULL;
     int headless = 0;
     int chat_log = 0;
-    const char* log_file_name = "chat_log.log";
+    const char *log_file_name = "chat_log.log";
     FILE* file = NULL;
+    char *name = NULL;
+    int name_type = 0;
 
     // Parse args
     if (argc > 2 && strcmp(argv[1], "-m") == 0) {
@@ -114,6 +116,11 @@ int main(int argc, char *argv[]) {
         headless = 1;
     }
 
+    // Id
+    if (argc > 2 && strcmp(argv[1], "-n") == 0) {
+        name_type = 1;
+        name = argv[2];
+    }
 
     if (argc > 1 && strcmp(argv[1], "-s") == 0) {
         printf("Running client with logging\n");
@@ -171,6 +178,17 @@ int main(int argc, char *argv[]) {
 
     printf("WebSocket handshake complete\n");
     fflush(stdout);
+
+    // Send Data to user
+    if (name_type && name) {
+        unsigned char frame[BUFFER_SIZE];
+        char msg[BUFFER_SIZE];
+
+        snprintf(msg, sizeof(msg), "[ID]%s", name);
+
+        int frame_len = ws_encode_frame(msg, strlen(msg), frame);
+        send(sockfd, frame, frame_len, 0);
+    }
 
     // Send test message if in headless mode
     if (headless && test_msg) {
@@ -239,3 +257,4 @@ int main(int argc, char *argv[]) {
     close(sockfd);
     return 0;
 }
+

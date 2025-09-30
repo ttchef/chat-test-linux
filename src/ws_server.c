@@ -13,6 +13,11 @@
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 4096
 
+typedef struct {
+    int id;
+    char name[64];
+} Client;
+
 // WebSocket handshake validation
 int ws_handshake(unsigned char *buffer, int len) {
     printf("Received handshake:\n%s\n", buffer);
@@ -86,6 +91,10 @@ int ws_encode_frame(const char *payload, int len, unsigned char *frame) {
 }
 
 int main(int argc, char *argv[]) {
+    // Allocate Clients 
+    Client clients[MAX_CLIENTS];
+    int clients_index = 0;
+
     char *test_msg = NULL;
 
     // Parse args
@@ -131,6 +140,12 @@ int main(int argc, char *argv[]) {
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
+
+                // Init Client
+                clients[clients_index].id = client_fd;
+                char name[] = "Anonym\0";
+                memcpy(clients[clients_index].name, name, sizeof(name));
+                clients_index++;
 
                 fds[nfds].fd = client_fd;
                 fds[nfds].events = POLLIN;
@@ -205,6 +220,16 @@ int main(int argc, char *argv[]) {
                     if (payload_len > 0) {
                         printf("Received: %s", payload);
                         fflush(stdout);
+
+                        // very safe btw
+                        // is a id verification
+                        if (strncmp(payload, "[ID]", 4) == 0) {
+                            for (int k = 0; k < clients_index; k++) {
+                                if (clients[k].id == fds[i].fd) {
+                                    snprintf(clients[k].name, sizeof(clients[k].name), "%s", payload + 5);
+                                }
+                            }
+                        }
 
                         // Broadcast to all other clients
                         unsigned char frame[BUFFER_SIZE];
