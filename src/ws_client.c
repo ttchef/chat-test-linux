@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
                             fprintf(stderr, "Failed to open %s try running without -s flag!\n", log_file_name);
                             return -1;
                         }
-                        fprintf(file, "%s\n", payload);
+                        fprintf(file, "%s", payload);
                         fclose(file);
                     }    
 
