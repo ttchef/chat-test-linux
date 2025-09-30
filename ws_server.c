@@ -11,54 +11,20 @@
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 4096
 
-// WebSocket handshake
-int ws_handshake(int client_fd) {
-    char buffer[BUFFER_SIZE];
-    char key[256] = {0};
-    char response[BUFFER_SIZE];
-
-    // Read HTTP request
-    int n = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
-    if (n <= 0) {
-        printf("Failed to receive handshake data\n");
-        return -1;
-    }
-    buffer[n] = '\0';
-
+// WebSocket handshake validation
+int ws_handshake(unsigned char *buffer, int len) {
     printf("Received handshake:\n%s\n", buffer);
     fflush(stdout);
 
-    // Extract Sec-WebSocket-Key
-    char *key_line = strstr(buffer, "Sec-WebSocket-Key:");
-    if (!key_line) {
-        printf("No Sec-WebSocket-Key found\n");
-        fflush(stdout);
-        return -1;
+    // Validate it's a WebSocket upgrade request (case insensitive)
+    if (strcasestr((char*)buffer, "upgrade: websocket") &&
+        strcasestr((char*)buffer, "sec-websocket-key:")) {
+        return 0;
     }
 
-    sscanf(key_line, "Sec-WebSocket-Key: %s", key);
-
-    // Create accept key
-    char accept_key[256];
-    snprintf(accept_key, sizeof(accept_key), "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", key);
-
-    // SHA1 hash
-    unsigned char hash[20];
-    sha1((unsigned char*)accept_key, strlen(accept_key), hash);
-
-    // Base64 encode
-    char b64[256];
-    base64_encode(hash, 20, b64);
-
-    // Send response
-    snprintf(response, sizeof(response),
-        "HTTP/1.1 101 Switching Protocols\r\n"
-        "Upgrade: websocket\r\n"
-        "Connection: Upgrade\r\n"
-        "Sec-WebSocket-Accept: %s\r\n\r\n", b64);
-
-    send(client_fd, response, strlen(response), 0);
-    return 0;
+    printf("Invalid WebSocket handshake\n");
+    fflush(stdout);
+    return -1;
 }
 
 // Decode WebSocket frame
@@ -182,10 +148,38 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (!handshake_done[i - 1]) {
-                    if (ws_handshake(fds[i].fd) == 0) {
+                    char response[BUFFER_SIZE];
+                    if (ws_handshake(buffer, len) == 0) {
                         handshake_done[i - 1] = 1;
                         printf("WebSocket handshake complete (fd=%d)\n", fds[i].fd);
                         fflush(stdout);
+
+                        // Send the handshake response
+                        char key[256] = {0};
+                        char *key_line = strcasestr((char*)buffer, "sec-websocket-key:");
+                        if (key_line) {
+                            // Skip "Sec-WebSocket-Key:" (or any case variation)
+                            char *key_start = strchr(key_line, ':');
+                            if (key_start) {
+                                sscanf(key_start + 1, " %s", key);
+                            }
+                            char accept_key[512];
+                            snprintf(accept_key, sizeof(accept_key), "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", key);
+                            unsigned char hash[20];
+                            sha1((unsigned char*)accept_key, strlen(accept_key), hash);
+                            char b64[256];
+                            base64_encode(hash, 20, b64);
+                            snprintf(response, sizeof(response),
+                                "HTTP/1.1 101 Switching Protocols\r\n"
+                                "Upgrade: websocket\r\n"
+                                "Connection: Upgrade\r\n"
+                                "Sec-WebSocket-Accept: %s\r\n\r\n", b64);
+                            printf("Sending handshake response with key: %s\n", b64);
+                            fflush(stdout);
+                            int sent = send(fds[i].fd, response, strlen(response), 0);
+                            printf("Sent %d bytes\n", sent);
+                            fflush(stdout);
+                        }
                     }
                 } else {
                     char payload[BUFFER_SIZE];
