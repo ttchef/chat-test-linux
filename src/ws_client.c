@@ -113,7 +113,10 @@ int main(int argc, char *argv[]) {
         test_msg = argv[2];
         headless = 1;
     }
-    if (argc > 2 && strcmp(argv[1], "-s") == 0) {
+
+
+    if (argc > 1 && strcmp(argv[1], "-s") == 0) {
+        printf("Running client with logging\n");
         chat_log = 1;
     }
 
@@ -124,6 +127,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Failed to create chat_log.log file try running withoug -s flag!\n");
             return -1;
         }
+        printf("Created file\n");
         fclose(file);
     }
 
@@ -214,7 +218,7 @@ int main(int argc, char *argv[]) {
                 int payload_len = ws_decode_frame(buffer, len, payload);
                 if (payload_len > 0) {
                     // Add to chat_log file
-                    if (chat_log) {
+                    if (chat_log && strcmp(payload, "") != 0) {
                         FILE* file = fopen(log_file_name, "a");
                         if (!file) {
                             fprintf(stderr, "Failed to open %s try running without -s flag!\n", log_file_name);
