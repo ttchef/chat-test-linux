@@ -5,6 +5,8 @@
 #include <poll.h> 
 #include <unistd.h>
 
+#include "ip.h"
+
 int main() {
 
     int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
@@ -15,7 +17,7 @@ int main() {
         0
     };
 
-    //inet_pton(AF_INET6, "127.0.0.1", &address);
+    inet_pton(AF_INET6, IP, &address.sin6_addr);
     connect(sockfd, (struct sockaddr*)&address, sizeof(address));
 
 
