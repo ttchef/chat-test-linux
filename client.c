@@ -7,15 +7,15 @@
 
 int main() {
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
 
-    struct sockaddr_in address = {
-        AF_INET,
+    struct sockaddr_in6 address = {
+        AF_INET6,
         htons(9999),
         0
     };
 
-    inet_pton(AF_INET, "127.0.0.1", &address);
+    //inet_pton(AF_INET6, "127.0.0.1", &address);
     connect(sockfd, (struct sockaddr*)&address, sizeof(address));
 
 

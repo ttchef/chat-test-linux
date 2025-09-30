@@ -7,10 +7,10 @@
 
 int main() {
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
 
-    struct sockaddr_in address = {
-        AF_INET,
+    struct sockaddr_in6 address = {
+        AF_INET6,
         htons(9999),
         0
     };
