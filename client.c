@@ -15,6 +15,7 @@ int main() {
         0
     };
 
+    inet_pton(AF_INET, "127.0.0.1", &address);
     connect(sockfd, (struct sockaddr*)&address, sizeof(address));
 
 
