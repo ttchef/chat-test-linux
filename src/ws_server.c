@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <poll.h>
 #include "sha1.h"
@@ -121,6 +122,16 @@ int main(int argc, char *argv[]) {
         if (fds[0].revents & POLLIN) {
             int client_fd = accept(server_fd, NULL, NULL);
             if (client_fd >= 0 && nfds < MAX_CLIENTS + 1) {
+                // Enable TCP keepalive to prevent idle timeout
+                int keepalive = 1;
+                int keepidle = 60;    // Start probes after 60s idle
+                int keepintvl = 10;   // Probe every 10s
+                int keepcnt = 6;      // Drop after 6 failed probes
+                setsockopt(client_fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive));
+                setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
+                setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
+                setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
+
                 fds[nfds].fd = client_fd;
                 fds[nfds].events = POLLIN;
                 handshake_done[nfds - 1] = 0;
