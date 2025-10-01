@@ -5,3 +5,5 @@ ws_client
 ws_server
 ui.exe
 src/chat_log.log
+bin
+release
