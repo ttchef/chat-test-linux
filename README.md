@@ -117,19 +117,6 @@ Terminal 3 (client 2):
 ./ws_client -h localhost -n Bob
 ```
 
-### Remote Chat via Tunnel
-
-```bash
-./ws_client -h your-domain.com -n Alice
-```
-
-### Headless Test
-
-Send a message and exit:
-```bash
-./ws_client -h localhost -n TestBot -m "Hello World!\n"
-```
-
 ### Chat with Logging
 
 ```bash
