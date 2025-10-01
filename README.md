@@ -83,61 +83,12 @@ Client Options:
 - `-m <message>` - Send test message and exit (headless mode)
 - `-s` - Enable chat logging to `chat_log.log`
 
-## Hosting with Cloudflare Tunnel
 
-### Setup Cloudflare Tunnel
-
-1. Install cloudflared:
-```bash
-# macOS
-brew install cloudflare/cloudflare/cloudflared
-
-# Linux
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared-linux-amd64.deb
-```
-
-2. Authenticate:
-```bash
-cloudflared tunnel login
-```
-
-3. Create a tunnel:
-```bash
-cloudflared tunnel create chat-server
-```
-
-4. Create a config file at `~/.cloudflared/config.yml`:
-```yaml
-tunnel: <your-tunnel-id>
-credentials-file: /home/YOUR_USER/.cloudflared/<your-tunnel-id>.json
-
-ingress:
-  - hostname: your-domain.com
-    service: http://localhost:9999
-  - service: http_status:404
-```
-
-5. Route your domain:
-```bash
-cloudflared tunnel route dns chat-server your-domain.com
-```
-
-6. Start the tunnel:
-```bash
-cloudflared tunnel run chat-server
-```
-
-### Running the Server with Tunnel
+### Running the Server
 
 1. Start the server:
 ```bash
 ./ws_server
-```
-
-2. Start the Cloudflare tunnel (in another terminal):
-```bash
-cloudflared tunnel run chat-server
 ```
 
 3. Connect from anywhere:
