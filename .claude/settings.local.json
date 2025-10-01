@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__easy-view__analyze_structure"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
