@@ -8,6 +8,7 @@ Experience real time chatting with your imaginary friends!
 
 ## Building
 
+
 ### Prerequisites
 - GCC compiler
 - Make
