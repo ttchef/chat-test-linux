@@ -68,3 +68,4 @@ appsettings.secrets.json
 /Media
 /TestFiles
 /TestNewOrganize
+*.a
