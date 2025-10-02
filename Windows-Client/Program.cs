@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Spectre.Console;
 
 class Program
 {
@@ -102,21 +103,21 @@ class Program
             try
             {
                 // Connection with timeout (mimicking lines 318-376)
-                Console.WriteLine($"Connecting to server at {host}:{port}");
+                AnsiConsole.MarkupLine($"[yellow]Connecting to server at {host}:{port}[/]");
 
                 var connectTask = ws.ConnectAsync(serverUri, CancellationToken.None);
                 var timeoutTask = Task.Delay(10000); // 10 second timeout
 
                 if (await Task.WhenAny(connectTask, timeoutTask) == timeoutTask)
                 {
-                    Console.Error.WriteLine($"Connection timeout to {host}:{port}");
+                    AnsiConsole.MarkupLine($"[red]Connection timeout to {host}:{port}[/]");
                     return;
                 }
 
                 await connectTask; // Ensure connection completed successfully
 
-                Console.WriteLine($"Connected to server at {host}:{port}");
-                Console.WriteLine("WebSocket handshake complete");
+                AnsiConsole.MarkupLine($"[green]Connected to server at {host}:{port}[/]");
+                AnsiConsole.MarkupLine("[green]WebSocket handshake complete[/]");
 
                 // Send username if provided (mimicking lines 394-407)
                 if (nameType && !string.IsNullOrEmpty(name))
@@ -152,7 +153,13 @@ class Program
                     // Create input task only if we don't have one already
                     if (inputTask == null)
                     {
-                        inputTask = Task.Run(() => Console.ReadLine());
+                        inputTask = Task.Run(() =>
+                        {
+                            return AnsiConsole.Prompt(
+                                new TextPrompt<string>("[bold blue]>[/] ")
+                                    .AllowEmpty()
+                            );
+                        });
                     }
 
                     // Wait for input or timeout
@@ -162,7 +169,7 @@ class Program
                     // In headless mode, exit after receiving response and timeout expires (lines 441-445)
                     if (completedTask == timeoutCheckTask && headless && receivedResponse)
                     {
-                        Console.WriteLine("Test complete");
+                        AnsiConsole.MarkupLine("[yellow]Test complete[/]");
                         break;
                     }
 
@@ -186,6 +193,7 @@ class Program
                         // Send input with newline (mimicking lines 456-459)
                         byte[] buffer = Encoding.UTF8.GetBytes(input + "\n");
                         await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                        AnsiConsole.MarkupLine($"[green]Sent: {input.EscapeMarkup()}[/]");
                     }
                 }
 
@@ -232,7 +240,7 @@ class Program
                     // If recv returns 0, server disconnected gracefully (line 471-474)
                     if (result.Count == 0 || result.MessageType == WebSocketMessageType.Close)
                     {
-                        Console.WriteLine("Server disconnected");
+                        AnsiConsole.MarkupLine("[red]Server disconnected[/]");
                         return;
                     }
 
@@ -260,7 +268,7 @@ class Program
                     }
 
                     // Print the received message (lines 502-505)
-                    Console.Write($"Received: {payload}");
+                    AnsiConsole.Markup($"[cyan]Received: {payload.EscapeMarkup()}[/]");
                     Console.Out.Flush();
 
                     // Mark that we've received at least one response
