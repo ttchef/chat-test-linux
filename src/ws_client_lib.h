@@ -27,9 +27,9 @@ typedef struct {
     const char* username;
 } wsClient;
 
-int32_t initClient(wsClient* client, const char* ip, const char* port, const char* username);
-int32_t sendMessage(wsClient* client, const char* message);
-int32_t deinitClient(wsClient* client);
+int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const char* username);
+int32_t wsSendMessage(wsClient* client, const char* message);
+int32_t wsDeinitClient(wsClient* client);
 
 // Internal
 int32_t __ws_encode_frame(const char* payload, int32_t len, uint8_t* frame);

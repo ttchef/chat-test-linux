@@ -3,7 +3,10 @@ all:
 	gcc src/ws_client.c -o ws_client
 
 	# Dynamic lib 
-	gcc src/ws_client_lib.c -fPIC -shared -o client_lib.so
+	#gcc src/ws_client_lib.c -fPIC -shared -o libclient.so
+	gcc -c -g src/ws_client_lib.c -o ws_client_lib.o
+	ar cr libclient.a ws_client_lib.o
+	gcc -g src/ws_client_test.c -o ws_client_test -L. -lclient
 
 clean:
 	rm src/ws_server 

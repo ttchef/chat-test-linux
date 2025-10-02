@@ -3,7 +3,7 @@
 #include <asm-generic/errno.h>
 #include <netdb.h>
 
-int32_t initClient(wsClient* client, const char* ip, const char* port, const char* username) {
+int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const char* username) {
 
     struct addrinfo hints = {0};
     struct addrinfo* result = NULL;
@@ -94,7 +94,7 @@ int32_t initClient(wsClient* client, const char* ip, const char* port, const cha
     return WS_OK;
 }
 
-int32_t sendMessage(wsClient* client, const char *message) {
+int32_t wsSendMessage(wsClient* client, const char *message) {
 
     char buffer[WS_BUFFER_SIZE];
     snprintf(buffer, WS_BUFFER_SIZE, "%s: %s", client->username, message);
@@ -107,7 +107,7 @@ int32_t sendMessage(wsClient* client, const char *message) {
     return WS_OK;
 }
 
-int32_t deinitClient(wsClient* client) {
+int32_t wsDeinitClient(wsClient* client) {
     close(client->id);
     return WS_OK;
 }
