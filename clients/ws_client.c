@@ -9,7 +9,6 @@
 #include <fcntl.h>      // File control: fcntl() for non-blocking sockets
 #include <errno.h>      // Error numbers: errno, EINPROGRESS
 
-#include "ip.h"         // Default IP address configuration
 
 // Size of buffers used for receiving and sending data
 #define BUFFER_SIZE 4096
@@ -258,7 +257,7 @@ int main(int argc, char *argv[]) {
     // Set default host if not specified by user
     if (!host_specified) {
         // Use default host from ip.h
-        host = IP;
+        host = "127.0.0.1";
     }
 
     // Set default port based on host if not specified by user
