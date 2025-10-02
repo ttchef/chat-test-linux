@@ -140,16 +140,23 @@ class Program
                 var cts = new CancellationTokenSource();
                 var listeningTask = ReceiveMessages(ws, chatLog, logFileName, () => receivedResponse = true, cts.Token);
 
+                // Create a single input task that will be reused
+                Task<string?>? inputTask = null;
+
                 // Main client loop (mimicking lines 432-509)
                 while (true)
                 {
                     // Set timeout based on mode (line 436)
                     int timeout = headless ? 5000 : 50000;
 
-                    // Wait for input or timeout
-                    var inputTask = Task.Run(() => Console.ReadLine());
-                    var timeoutCheckTask = Task.Delay(timeout);
+                    // Create input task only if we don't have one already
+                    if (inputTask == null)
+                    {
+                        inputTask = Task.Run(() => Console.ReadLine());
+                    }
 
+                    // Wait for input or timeout
+                    var timeoutCheckTask = Task.Delay(timeout);
                     var completedTask = await Task.WhenAny(inputTask, timeoutCheckTask);
 
                     // In headless mode, exit after receiving response and timeout expires (lines 441-445)
@@ -163,6 +170,9 @@ class Program
                     if (completedTask == inputTask)
                     {
                         string? input = await inputTask;
+
+                        // Reset inputTask so a new one will be created on next iteration
+                        inputTask = null;
 
                         if (string.IsNullOrEmpty(input))
                             continue;
@@ -205,23 +215,35 @@ class Program
     static async Task ReceiveMessages(ClientWebSocket ws, bool chatLog, string logFileName, Action onMessageReceived, CancellationToken cancellationToken)
     {
         var buffer = new byte[BUFFER_SIZE];
+        var messageBuffer = new List<byte>();
 
         try
         {
             while (ws.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
-                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                messageBuffer.Clear();
+                WebSocketReceiveResult result;
 
-                // If recv returns 0, server disconnected gracefully (line 471-474)
-                if (result.Count == 0 || result.MessageType == WebSocketMessageType.Close)
+                // Read all fragments of the message
+                do
                 {
-                    Console.WriteLine("Server disconnected");
-                    return;
-                }
+                    result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+
+                    // If recv returns 0, server disconnected gracefully (line 471-474)
+                    if (result.Count == 0 || result.MessageType == WebSocketMessageType.Close)
+                    {
+                        Console.WriteLine("Server disconnected");
+                        return;
+                    }
+
+                    // Append this fragment to the message buffer
+                    messageBuffer.AddRange(new ArraySegment<byte>(buffer, 0, result.Count));
+
+                } while (!result.EndOfMessage);
 
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
-                    string payload = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    string payload = Encoding.UTF8.GetString(messageBuffer.ToArray());
 
                     // Log to file if chat logging is enabled (lines 487-499)
                     if (chatLog && !string.IsNullOrEmpty(payload))
