@@ -14,3 +14,4 @@ debug_*
 /js-client/node_modules
 ws_client_test
 ws_client_test.o
+*.a
