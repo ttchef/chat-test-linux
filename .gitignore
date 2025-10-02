@@ -12,3 +12,5 @@ test_*
 trace_*
 debug_*
 client_lib.so
+ws_client_test.o
+ws_client_test
