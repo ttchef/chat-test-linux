@@ -113,6 +113,23 @@ int32_t wsSendMessage(wsClient* client, const char *message) {
     return WS_OK;
 }
 
+int32_t wsSendMessageN(wsClient *client, const char *message, size_t n) {
+    char buffer[WS_BUFFER_SIZE];
+    char tmp[WS_BUFFER_SIZE];
+    if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
+    strncpy(tmp, message, n);
+    tmp[n] = '\0';
+
+    snprintf(buffer, WS_BUFFER_SIZE, "%s: %s", client->username, tmp);
+    size_t len = strlen(buffer);
+
+    uint8_t frame[WS_BUFFER_SIZE];
+    int32_t frameLen = __ws_encode_frame(buffer, len, frame);
+    send(client->id, frame, frameLen, 0);
+
+    return WS_OK;
+}
+
 int32_t wsSetMessageCallback(wsClient* client, wsMessageCallbackPFN functionPtr) {
     if (!functionPtr) {
         WS_LOG_ERROR("Input function pointer is NULL\n");
