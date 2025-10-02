@@ -361,7 +361,15 @@ int main(int argc, char *argv[]) {
                             char *key_start = strchr(key_line, ':');
                             if (key_start) {
                                 // Parse the key value (skip colon and whitespace)
-                                sscanf(key_start + 1, " %s", key);
+                                sscanf(key_start + 1, " %[^\r\n]", key);
+                                // Trim trailing whitespace
+                                char *end = key + strlen(key) - 1;
+                                while (end > key && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')) {
+                                    *end = '\0';
+                                    end--;
+                                }
+                                printf("Extracted WebSocket key: '%s' (len=%zu)\n", key, strlen(key));
+                                fflush(stdout);
                             }
 
                             // Create the accept key by concatenating client key with WebSocket GUID

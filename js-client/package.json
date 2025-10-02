@@ -7,9 +7,7 @@
   "scripts": {
     "start": "node client.js"
   },
-  "dependencies": {
-    "ws": "^8.14.2"
-  },
+  "dependencies": {},
   "author": "",
   "license": "ISC"
 }
