@@ -59,36 +59,43 @@ void sha1(const unsigned char *data, size_t len, unsigned char *hash) {
     // Current position in the input data
     size_t i = 0;
 
+    // Track if we need to process a final padding block
+    int needs_final_block = 0;
+
     // Process data in 64-byte blocks
-    while (i < len) {
-        // Calculate how many bytes to read for this block
-        // Last block may be less than 64 bytes
-        size_t block_len = (len - i < 64) ? (len - i) : 64;
+    while (i <= len) {
+        size_t block_len;
 
-        // Copy data into block buffer
-        memcpy(block, data + i, block_len);
+        // If we've processed all input data, handle padding
+        if (i >= len) {
+            if (!needs_final_block) break;
+            block_len = 0;
+        } else {
+            // Calculate how many bytes to read for this block
+            block_len = (len - i < 64) ? (len - i) : 64;
+            // Copy data into block buffer
+            memcpy(block, data + i, block_len);
+        }
 
-        // If this is the last block and it's not full, add padding
+        // Handle padding
         if (block_len < 64) {
             // Append a single '1' bit (0x80 = 10000000 in binary)
             block[block_len++] = 0x80;
 
-            // Fill with zeros until we have room for the 8-byte length
-            // We need 8 bytes at the end for the original length
-            while (block_len < 56) block[block_len++] = 0;
+            // If we don't have room for the 8-byte length, fill this block and create another
+            if (block_len > 56) {
+                while (block_len < 64) block[block_len++] = 0;
+                needs_final_block = 1;
+            } else {
+                // Fill with zeros until we have room for the 8-byte length
+                while (block_len < 56) block[block_len++] = 0;
 
-            // Append the original message length in bits (big-endian 64-bit)
-            for (int j = 0; j < 8; j++) {
-                // Extract each byte from the 64-bit length value
-                // Shift right by (56 - j*8) bits and mask to get one byte
-                block[56 + j] = (total_len >> (56 - j * 8)) & 0xFF;
+                // Append the original message length in bits (big-endian 64-bit)
+                for (int j = 0; j < 8; j++) {
+                    block[56 + j] = (total_len >> (56 - j * 8)) & 0xFF;
+                }
+                needs_final_block = 0;
             }
-        }
-        // If current block is full but we're at the end, we need another padding block
-        else if (i + 64 >= len) {
-            // Skip processing this block and continue to create padding block
-            i += 64;
-            continue;
         }
 
         // Expand the 16-word (64-byte) block into 80 words for processing
