@@ -449,6 +449,20 @@ int main(int argc, char *argv[]) {
                         for (int j = 1; j < nfds; j++) {
                             // Skip if this is the sender or if client hasn't completed handshake
                             if (j != i && handshake_done[j - 1]) {
+                                
+                                char name[64] = "Anonym\0";
+                                // Check which client 
+                                for (int n = 0; n < clients_index; n++) {
+                                    if (clients[n].id == fds[j].fd) {
+                                        strcpy(name, clients[n].name);
+                                    }
+                                }
+
+                                char buffer[BUFFER_SIZE];
+                                snprintf(buffer, BUFFER_SIZE, "%s: %s", name, payload);
+                                size_t buffer_len = strlen(buffer);
+                                frame_len = ws_encode_frame(buffer, buffer_len, frame);
+
                                 // Send the encoded frame
                                 send(fds[j].fd, frame, frame_len, 0);
                             }
