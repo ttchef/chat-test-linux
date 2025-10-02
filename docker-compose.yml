@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  ws_server:
+    build: .
+    container_name: ws_server
+    ports:
+      - "9999:9999"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -an | grep 9999 | grep LISTEN || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
