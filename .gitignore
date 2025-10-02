@@ -18,3 +18,4 @@ ws_client_test.o
 *.log
 src/client.log 
 src/server.log
+lib/ws_client_lib.o
