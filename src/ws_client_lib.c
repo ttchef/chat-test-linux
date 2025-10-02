@@ -1,24 +1,115 @@
 
 #include "ws_client_lib.h"
+#include <asm-generic/errno.h>
+#include <netdb.h>
 
-int32_t initClient(wsClient* client, const char* ip, const char* port) {
+int32_t initClient(wsClient* client, const char* ip, const char* port, const char* username) {
 
+    struct addrinfo hints = {0};
+    struct addrinfo* result = NULL;
+
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    // Convert URL to ip
+    if (getaddrinfo(ip, port, &hints, &result) != 0) {
+        WS_LOG_ERROR("[WS CLIENT] Failed to convert URL to valid IP address %s!\n", ip);
+        return WS_ERROR;
+    }
+
+    // Create socket
+    int32_t sockfd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+    if (sockfd < 0) {
+        WS_LOG_ERROR("[WS CLIENT] Failed to create socket connection to the server %s:%s!\n", ip, port);
+        freeaddrinfo(result);
+        return WS_ERROR;
+    }
+
+    // Set socket to non blocking (for connect timeout)
+    int32_t flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+
+    // Try to connect to server 
+    int32_t connectResult = connect(sockfd, result->ai_addr, result->ai_addrlen);
+    if (connectResult < 0 && errno != EINPROGRESS) {
+        WS_LOG_ERROR("[WS CLIENT] Failed to connect to the server %s:%s!\n", ip, port);
+        close(sockfd);
+        freeaddrinfo(result);
+        return WS_ERROR;
+    }
+
+    // Wait for connection (with timeout)
+    if (errno == EINPROGRESS) {
+        struct pollfd pfd = {sockfd, POLLOUT, 0};
+        int32_t pollResult = poll(&pfd, 1, 10000); // 10000 ms
+        if (pollResult == 0) {
+            WS_LOG_ERROR("[WS CLIENT] Connection timeout to %s:%s\n", ip, port);
+            close(sockfd);
+            freeaddrinfo(result);
+            return WS_ERROR;
+        }
+
+        if (pollResult < 0) {
+            WS_LOG_ERROR("[WS CLIENT] Poll Failed!\n");
+            close(sockfd);
+            freeaddrinfo(result);
+            return WS_ERROR;
+        }
+
+        // Connected check for errors
+        int32_t error;
+        socklen_t len = sizeof(error);
+        if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error != 0) {
+            WS_LOG_ERROR("[WS CLIENT] Failed to connect to %s:%s\n", ip, port);
+            close(sockfd);
+            freeaddrinfo(result);
+            return WS_ERROR;
+        }
+    }
     
+    // Set socket back to blocking mode 
+    fcntl(sockfd, F_SETFL, flags);
+    freeaddrinfo(result);
+
+    WS_LOG_DEBUG("Connected to server at %s:%s\n", ip, port);
+
+    // websocket handshake 
+    if (__ws_client_handshake(sockfd, ip) == WS_ERROR) {
+        WS_LOG_ERROR("Websocket handshake failed\n");
+        close(sockfd);
+        return WS_ERROR;
+    }
+
+    WS_LOG_DEBUG("WebSocket handshake complete\n");
+    
+    client->id = sockfd;
+    client->ip = ip;
+    client->port = port;
+    client->fds[0] = (struct pollfd){0, POLLIN, 0};
+    client->fds[1] = (struct pollfd){sockfd, POLLIN, 0};
+
+    if (!username) client->username = "Anonym\0";
+    else client->username = username;
 
     return WS_OK;
 }
 
-int32_t connectClient() {
+int32_t sendMessage(wsClient* client, const char *message) {
+
+    char buffer[WS_BUFFER_SIZE];
+    snprintf(buffer, WS_BUFFER_SIZE, "%s: %s", client->username, message);
+    size_t len = strlen(buffer);
+
+    uint8_t frame[WS_BUFFER_SIZE];
+    int32_t frameLen = __ws_encode_frame(buffer, len, frame);
+    send(client->id, frame, frameLen, 0);
 
     return WS_OK;
-}
-
-int32_t sendMessage(const char *message) {
-
 }
 
 int32_t deinitClient(wsClient* client) {
-
+    close(client->id);
+    return WS_OK;
 }
 
 
