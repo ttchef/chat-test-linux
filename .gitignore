@@ -16,3 +16,5 @@ ws_client_test
 ws_client_test.o
 *.a
 *.log
+src/client.log 
+src/server.log
