@@ -246,8 +246,9 @@
             const port = portInput.value || '9999';
             const username = nameInput.value;
 
-            // Determine protocol based on host
-            const protocol = (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') ? 'ws' : 'wss';
+            // Use ws:// (plain WebSocket, no TLS)
+            // Use wss:// only if connecting via HTTPS page or explicitly needed
+            const protocol = 'ws';
             const wsUrl = `${protocol}://${host}:${port}`;
 
             addMessage(`Connecting to ${wsUrl}...`, 'system');

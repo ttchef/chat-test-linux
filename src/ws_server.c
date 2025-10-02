@@ -345,14 +345,6 @@ int main(int argc, char *argv[]) {
                 // Receive data from the client socket (leave room for null terminator)
                 int len = recv(fds[i].fd, buffer, BUFFER_SIZE - 1, 0);
 
-                // Debug: print received bytes
-                printf("Received %d bytes: ", len);
-                for(int x = 0; x < (len < 40 ? len : 40); x++) {
-                    printf("%02X ", buffer[x]);
-                }
-                printf("\n");
-                fflush(stdout);
-
                 // If recv returns 0 or negative, client has disconnected or error occurred
                 if (len <= 0) {
                     // Print disconnection message
