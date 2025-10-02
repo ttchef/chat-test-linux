@@ -151,7 +151,7 @@ int32_t wsClientListen(wsClient *client) {
                 char buffer[64];
                 strncpy(buffer, msg, i);
                 buffer[i] = '\0';
-                client->messageFunc(msg, buffer, time(NULL));
+                client->messageFunc(client, msg, buffer, time(NULL));
             }
             else {
                 WS_LOG_ERROR("Couldnt find username or had problems decoding the message\n");

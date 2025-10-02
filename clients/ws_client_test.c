@@ -3,7 +3,7 @@
 
 #include "../lib/ws_client_lib.h"
 
-void messageCallback(const char* message, const char* username, time_t time) {
+void messageCallback(wsClient* client, const char* message, const char* username, time_t time) {
     printf("%s", message);
 }
 
