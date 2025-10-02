@@ -8,3 +8,6 @@ src/chat_log.log
 bin
 release
 .claude
+test_*
+trace_*
+debug_*
