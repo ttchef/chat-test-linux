@@ -10,6 +10,7 @@
 #include <arpa/inet.h>  // Internet operations: inet_addr, htons
 #include <netdb.h>      // Network database operations: getaddrinfo, freeaddrinfo
 #include <poll.h>       // Poll system call for multiplexing I/O
+#include <signal.h>     // Signal handling: signal, SIGPIPE
 #include "sha1.h"       // SHA1 and Base64 encoding for WebSocket handshake
 
 // Maximum number of simultaneous client connections the server can handle
@@ -101,6 +102,12 @@ int ws_decode_frame(unsigned char *data, int len, char *payload) {
         pos = 10;
     }
 
+    // Bounds check: prevent buffer overflow in payload buffer
+    if (payload_len >= BUFFER_SIZE) {
+        printf("Payload too large: %lu bytes (max %d)\n", (unsigned long)payload_len, BUFFER_SIZE - 1);
+        return -1;
+    }
+
     // If payload is masked, we need to unmask it using the 4-byte masking key
     if (masked) {
         // Extract the 4-byte masking key
@@ -173,10 +180,15 @@ int ws_encode_frame(const char *payload, int len, unsigned char *frame) {
  * - Handles client disconnections
  */
 int main(int argc, char *argv[]) {
+    // Ignore SIGPIPE to prevent crashes when clients disconnect during send()
+    signal(SIGPIPE, SIG_IGN);
+
     // Array to store information about all connected clients
     Client clients[MAX_CLIENTS];
-    // Track the number of clients that have ever connected (used as array index)
-    int clients_index = 0;
+    // Initialize all client IDs to -1 (inactive)
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        clients[i].id = -1;
+    }
 
     // Default host to bind to (0.0.0.0 means all network interfaces)
     char *host = "0.0.0.0";
@@ -273,6 +285,23 @@ int main(int argc, char *argv[]) {
 
             // Check if accept succeeded and we have room for more clients
             if (client_fd >= 0 && nfds < MAX_CLIENTS + 1) {
+                // Find an available slot in the clients array
+                int client_slot = -1;
+                for (int k = 0; k < MAX_CLIENTS; k++) {
+                    if (clients[k].id == -1) {
+                        client_slot = k;
+                        break;
+                    }
+                }
+
+                // If no slot available, reject connection
+                if (client_slot == -1) {
+                    printf("Max clients reached, rejecting connection\n");
+                    fflush(stdout);
+                    close(client_fd);
+                    continue;
+                }
+
                 // Enable TCP keepalive to detect dead connections
                 // This prevents idle connections from timing out
                 int keepalive = 1;  // Enable keepalive
@@ -286,13 +315,11 @@ int main(int argc, char *argv[]) {
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
                 setsockopt(client_fd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
 
-                // Initialize client information
-                clients[clients_index].id = client_fd;  // Store the socket file descriptor
+                // Initialize client information in the found slot
+                clients[client_slot].id = client_fd;  // Store the socket file descriptor
                 // Set default username to "Anonym" (7 bytes + null terminator)
                 char name[] = "Anonym\0";
-                memcpy(clients[clients_index].name, name, sizeof(name));
-                // Increment the client index for the next client
-                clients_index++;
+                memcpy(clients[client_slot].name, name, sizeof(name));
 
                 // Add client socket to the poll array
                 fds[nfds].fd = client_fd;    // File descriptor to monitor
@@ -303,7 +330,7 @@ int main(int argc, char *argv[]) {
                 nfds++;
 
                 // Print debug message
-                printf("Client connected (fd=%d)\n", client_fd);
+                printf("Client connected (fd=%d, slot=%d)\n", client_fd, client_slot);
                 fflush(stdout);
             }
         }
@@ -315,13 +342,22 @@ int main(int argc, char *argv[]) {
             if (fds[i].revents & POLLIN) {
                 // Buffer to store received data
                 unsigned char buffer[BUFFER_SIZE];
-                // Receive data from the client socket
-                int len = recv(fds[i].fd, buffer, BUFFER_SIZE, 0);
+                // Receive data from the client socket (leave room for null terminator)
+                int len = recv(fds[i].fd, buffer, BUFFER_SIZE - 1, 0);
 
                 // If recv returns 0 or negative, client has disconnected or error occurred
                 if (len <= 0) {
                     // Print disconnection message
                     printf("Client disconnected (fd=%d)\n", fds[i].fd);
+
+                    // Mark this client's slot as free in the clients array
+                    for (int k = 0; k < MAX_CLIENTS; k++) {
+                        if (clients[k].id == fds[i].fd) {
+                            clients[k].id = -1;
+                            break;
+                        }
+                    }
+
                     // Close the client socket
                     close(fds[i].fd);
 
@@ -338,6 +374,9 @@ int main(int argc, char *argv[]) {
                     // Skip to next iteration
                     continue;
                 }
+
+                // Null-terminate the buffer for safe string operations
+                buffer[len] = '\0';
 
                 // Check if this client has completed the WebSocket handshake
                 // handshake_done array is offset by 1 from fds array
@@ -398,6 +437,19 @@ int main(int argc, char *argv[]) {
 
                             // Send the handshake response to the client
                             int sent = send(fds[i].fd, response, strlen(response), 0);
+                            if (sent < 0) {
+                                printf("Failed to send handshake response (fd=%d)\n", fds[i].fd);
+                                fflush(stdout);
+                                close(fds[i].fd);
+                                // Mark client slot as free
+                                for (int k = 0; k < MAX_CLIENTS; k++) {
+                                    if (clients[k].id == fds[i].fd) {
+                                        clients[k].id = -1;
+                                        break;
+                                    }
+                                }
+                                continue;
+                            }
 
                             // Debug: print number of bytes sent
                             printf("Sent %d bytes\n", sent);
@@ -422,21 +474,24 @@ int main(int argc, char *argv[]) {
                     // If we successfully decoded a payload
                     if (payload_len > 0) {
                         // Print the received message
-                        for (int p = 0; p < clients_index; p++) {
-                            printf("%s: %s", clients[p].name, payload);
-                            fflush(stdout);
+                        for (int p = 0; p < MAX_CLIENTS; p++) {
+                            if (clients[p].id == fds[i].fd) {
+                                printf("%s: %s", clients[p].name, payload);
+                                fflush(stdout);
+                                break;
+                            }
                         }
 
                         // Check if this is a special [ID] message for setting username
                         // Format: "[ID]username" (5 chars prefix: [ID] + first char of name)
                         if (strncmp(payload, "[ID]", 4) == 0) {
                             // Find this client in the clients array
-                            for (int k = 0; k < clients_index; k++) {
+                            for (int k = 0; k < MAX_CLIENTS; k++) {
                                 if (clients[k].id == fds[i].fd) {
                                     // Update the client's name (skip "[ID]" prefix)
                                     snprintf(clients[k].name, sizeof(clients[k].name), "%s", payload + 5);
-        
-                                    // Remove \n 
+
+                                    // Remove \n
                                     size_t len = strlen(clients[k].name);
                                     if (len > 0 && clients[k].name[len - 1] == '\n') {
                                         clients[k].name[len - 1] = '\0';
@@ -457,12 +512,13 @@ int main(int argc, char *argv[]) {
                         for (int j = 1; j < nfds; j++) {
                             // Skip if this is the sender or if client hasn't completed handshake
                             if (j != i && handshake_done[j - 1]) {
-                                
+
                                 char name[64] = "Anonym\0";
-                                // Check which client 
-                                for (int n = 0; n < clients_index; n++) {
+                                // Check which client
+                                for (int n = 0; n < MAX_CLIENTS; n++) {
                                     if (clients[n].id == fds[i].fd) {
                                         strcpy(name, clients[n].name);
+                                        break;
                                     }
                                 }
 
@@ -471,8 +527,12 @@ int main(int argc, char *argv[]) {
                                 size_t buffer_len = strlen(buffer);
                                 frame_len = ws_encode_frame(buffer, buffer_len, frame);
 
-                                // Send the encoded frame
-                                send(fds[j].fd, frame, frame_len, 0);
+                                // Send the encoded frame, check for errors
+                                int sent = send(fds[j].fd, frame, frame_len, 0);
+                                if (sent < 0) {
+                                    printf("Failed to send to client (fd=%d), will be disconnected\n", fds[j].fd);
+                                    fflush(stdout);
+                                }
                             }
                         }
                     }

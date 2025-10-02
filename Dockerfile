@@ -20,6 +20,11 @@ RUN gcc -o ws_server ws_server.c
 # Create minimal runtime image
 FROM debian:bookworm-slim
 
+# Install net-tools for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    net-tools \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy built binary from builder
 WORKDIR /app
 COPY --from=builder /app/src/ws_server .
