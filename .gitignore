@@ -11,3 +11,4 @@ release
 test_*
 trace_*
 debug_*
+client_lib.so
