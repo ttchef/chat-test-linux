@@ -453,7 +453,7 @@ int main(int argc, char *argv[]) {
                                 char name[64] = "Anonym\0";
                                 // Check which client 
                                 for (int n = 0; n < clients_index; n++) {
-                                    if (clients[n].id == fds[j].fd) {
+                                    if (clients[n].id == fds[i].fd) {
                                         strcpy(name, clients[n].name);
                                     }
                                 }
