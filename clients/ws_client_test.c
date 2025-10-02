@@ -1,7 +1,7 @@
 #define WS_ENABLE_LOG_DEBUG
 #define WS_ENABLE_LOG_ERROR
 
-#include "ws_client_lib.h"
+#include "../lib/ws_client_lib.h"
 
 int main() {
 
