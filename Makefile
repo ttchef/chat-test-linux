@@ -1,4 +1,3 @@
-
 all:
 	gcc src/ws_server.c -o ws_server
 	gcc src/ws_client.c -o ws_client
