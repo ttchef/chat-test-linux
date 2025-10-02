@@ -113,6 +113,56 @@ int32_t wsSendMessage(wsClient* client, const char *message) {
     return WS_OK;
 }
 
+int32_t wsSetMessageCallback(wsClient* client, wsMessageCallbackPFN functionPtr) {
+    if (!functionPtr) {
+        WS_LOG_ERROR("Input function pointer is NULL\n");
+        return WS_ERROR;
+    }
+
+    client->messageFunc = functionPtr;    
+    
+    return WS_OK;
+}
+
+int32_t wsClientListen(wsClient *client) {
+    int32_t pollResult = poll(client->fds, 2, 50000);
+    if (pollResult < 0) {
+        WS_LOG_ERROR("Poll Error\n");
+        return WS_ERROR;
+    }
+    if (pollResult == 0) {
+        return WS_OK;
+    }
+
+    // Socket has data
+    if (client->fds[1].revents & POLLIN) {
+        uint8_t buffer[WS_BUFFER_SIZE];
+        int32_t len = recv(client->id, buffer, WS_BUFFER_SIZE, 0);
+        if (len == 0) {
+            WS_LOG_DEBUG("Server disconnected\n");
+            return WS_OK;
+        }
+        if (len > 0) {
+            char msg[WS_BUFFER_SIZE];
+            int32_t msgLen = __ws_decode_frame(buffer, len, msg);
+            const char* colon = strchr(msg, ':');
+            if (colon && msgLen > 0) {
+                size_t i = colon - msg;
+                char buffer[64];
+                strncpy(buffer, msg, i);
+                buffer[i] = '\0';
+                client->messageFunc(msg, buffer, time(NULL));
+            }
+            else {
+                WS_LOG_ERROR("Couldnt find username or had problems decoding the message\n");
+                return WS_ERROR;
+            }
+        }
+    } 
+
+    return WS_OK;
+}
+
 int32_t wsDeinitClient(wsClient* client) {
     close(client->id);
     return WS_OK;
