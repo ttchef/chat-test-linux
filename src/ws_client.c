@@ -499,7 +499,7 @@ int main(int argc, char *argv[]) {
                     }
 
                     // Print the received message to stdout
-                    printf("Received: %s", payload);
+                    printf("%s", payload);
                     fflush(stdout);
                     // Mark that we've received at least one response
                     received_response = 1;

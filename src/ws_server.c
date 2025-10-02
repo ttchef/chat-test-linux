@@ -414,8 +414,10 @@ int main(int argc, char *argv[]) {
                     // If we successfully decoded a payload
                     if (payload_len > 0) {
                         // Print the received message
-                        printf("Received: %s", payload);
-                        fflush(stdout);
+                        for (int p = 0; p < clients_index; p++) {
+                            printf("%s: %s", clients[p].name, payload);
+                            fflush(stdout);
+                        }
 
                         // Check if this is a special [ID] message for setting username
                         // Format: "[ID]username" (5 chars prefix: [ID] + first char of name)
@@ -425,6 +427,15 @@ int main(int argc, char *argv[]) {
                                 if (clients[k].id == fds[i].fd) {
                                     // Update the client's name (skip "[ID]" prefix)
                                     snprintf(clients[k].name, sizeof(clients[k].name), "%s", payload + 5);
+        
+                                    // Remove \n 
+                                    size_t len = strlen(clients[k].name);
+                                    if (len > 0 && clients[k].name[len - 1] == '\n') {
+                                        clients[k].name[len - 1] = '\0';
+                                    }
+
+                                    printf("[ID] %d %s\n", clients[k].id, clients[k].name);
+                                    fflush(stdout);
                                 }
                             }
                         }
@@ -438,6 +449,20 @@ int main(int argc, char *argv[]) {
                         for (int j = 1; j < nfds; j++) {
                             // Skip if this is the sender or if client hasn't completed handshake
                             if (j != i && handshake_done[j - 1]) {
+                                
+                                char name[64] = "Anonym\0";
+                                // Check which client 
+                                for (int n = 0; n < clients_index; n++) {
+                                    if (clients[n].id == fds[i].fd) {
+                                        strcpy(name, clients[n].name);
+                                    }
+                                }
+
+                                char buffer[BUFFER_SIZE];
+                                snprintf(buffer, BUFFER_SIZE, "%s: %s", name, payload);
+                                size_t buffer_len = strlen(buffer);
+                                frame_len = ws_encode_frame(buffer, buffer_len, frame);
+
                                 // Send the encoded frame
                                 send(fds[j].fd, frame, frame_len, 0);
                             }
