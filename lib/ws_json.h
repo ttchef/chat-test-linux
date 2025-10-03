@@ -10,11 +10,13 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef enum {
     WS_JSON_STRING,
     WS_JSON_NUMBER,
     WS_JSON_OBJECT,
+    WS_JSON_BOOL,
 } wsJsonType;
 
 typedef struct wsJson {
@@ -23,6 +25,7 @@ typedef struct wsJson {
     union {
         char stringValue[WS_JSON_MAX_VALUE_SIZE];
         double numberValue;
+        bool boolValue;
         struct {
             struct wsJson* children[WS_JSON_OBJECT_MAX_FIELDS];
             int32_t childCount;
@@ -33,11 +36,13 @@ typedef struct wsJson {
 // Create Notes
 wsJson* wsJsonInitChild(const char* key);
 wsJson* wsJsonInitString(const char* key, const char* val);
-wsJson* wsJsonInitNumber(const char* key, double val);
+wsJson* wsJsonInitNumber(const char* key, double val); 
+wsJson* wsJsonInitBool(const char* key, bool val);
 
 // Adds a new child to the json object
 void wsJsonAddField(wsJson* parent, wsJson* child);
 int32_t wsJsonToString(wsJson* obj, char* out, size_t size);
+wsJson* wsStringToJson(const char** string);
 wsJson* wsJsonGet(wsJson* obj, const char* key);
 const char* wsJsonGetString(wsJson* obj, const char* key);
 double wsJsonGetNumber(wsJson* obj, const char* key);

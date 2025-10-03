@@ -33,7 +33,7 @@
 #ifdef WS_ENABLE_LOG_ERROR
     #define WS_LOG_ERROR(msg, ...) \
         do { \
-            fprintf(stderr, "[WS ERROR]"); \
+            fprintf(stderr, "[WS ERROR] "); \
             fprintf(stderr, msg, ##__VA_ARGS__); \
         } while(0)
 #else 

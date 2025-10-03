@@ -29,6 +29,12 @@ int main() {
 
     wsJsonFree(root);
 
+    // Test converting to json
+    const char* cp = out;
+    wsJson* conv = wsStringToJson(&cp);
+    wsJsonToString(conv, out, sizeof(out));
+    printf("%s\n", out);
+    wsJsonFree(conv);
 
     wsClient client = {0};
     fprintf(stderr, "[TEST] Starting client initialization...\n");
