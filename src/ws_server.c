@@ -17,6 +17,13 @@
 
 #define MAX_CLIENTS 10
 
+int32_t getClientIndex(wsClient* clients, int32_t i) {
+    for (int32_t j = 0; j < MAX_CLIENTS; j++) {
+        if (clients[j].id == i) return j; break;
+    }
+    return -1;
+}
+
 int main(int argc, char *argv[]) {
     signal(SIGPIPE, SIG_IGN);
 
@@ -240,17 +247,18 @@ int main(int argc, char *argv[]) {
                         wsJson* message = wsJsonGet(root, "message");
                         double info = wsJsonGetNumber(message, "info");
                         uint64_t flags = (uint64_t)info;
+
                         if (flags & WS_CHANGE_USERNAME) {
                             printf("Change username message detected!\n");
                             
-                            // Loop through thew clients
-                            for (int32_t j = 0; j < MAX_CLIENTS; j++) {
-                                if (fds[i].fd == clients[j].id) {
-                                    clients[j].username = name;
-                                    printf("Updated client: %d name to: %s\n", clients[j].id, name);
-                                    break;
-                                }
+                            int32_t index = getClientIndex(clients, fds[i].fd);
+                            if (index == -1) {
+                                WS_LOG_ERROR("Failed to find client with fitting index: %d\n", fds[i].fd);
+                                continue;
                             }
+                            clients[index].username = name;
+
+                            printf("Updated client: %d name to: %s\n", clients[index].id, name);
                         }
 
                         // Broadcast the message to all other connected clients
