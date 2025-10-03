@@ -1,23 +1,23 @@
-client
-server
-ip.h
-ws_client
-ws_server
-ui.exe
-src/chat_log.log
-bin
-release
-.claude
-test_*
-trace_*
-debug_*
-/js-client/node_modules
-ws_client_test
-ws_client_test.o
+# Binaries
+*.exe
+*.o
 *.a
+*.so
+*.dll
+
+# Build
+bin/
+release/
+
+# Logs
 *.log
-src/client.log 
-src/server.log
-lib/ws_client_lib.o
-lib/ws_json.o
-libwsclient.so
+src/*.log
+lib/*.log
+
+.claude
+.vscode/
+.idea/
+
+clients/js-client/node_modules/
+
+
