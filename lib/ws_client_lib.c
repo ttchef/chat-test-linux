@@ -175,11 +175,11 @@ int32_t wsClientListen(wsClient *client) {
             wsJsonAddField(root, message);
 
             char tmp[WS_BUFFER_SIZE];
-            wsJsonToString(root, tmp, WS_BUFFER_SIZE);
+            int jsonLen = wsJsonToString(root, tmp, WS_BUFFER_SIZE);
             wsJsonFree(root);
-        
+
             uint8_t frame[WS_BUFFER_SIZE];
-            int frameLen = __ws_encode_frame(tmp, WS_BUFFER_SIZE, frame);
+            int frameLen = __ws_encode_frame(tmp, jsonLen, frame);
             send(client->id, frame, frameLen, 0);
         }
     }

@@ -17,7 +17,12 @@ lib/*.log
 .claude
 .vscode/
 .idea/
-
+test_*
+trace_*
+debug_*
+./ws_server
+./ws_server
+./ws_client_test
 clients/js-client/node_modules/
 
 

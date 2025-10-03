@@ -269,38 +269,41 @@ int main(int argc, char *argv[]) {
                             printf("Updated client: %d name to: %s\n", clients[index].id, name);
                         }
 
+                        // Don't broadcast if NO_BROADCAST flag is set
                         if (flags & WS_NO_BROADCAST) {
                             wsJsonFree(root);
                             continue;
                         }
 
-                        // Construct json
-                        wsJson* msg = wsJsonInitChild(NULL);
-                        wsJson* user2 = wsJsonInitChild("user");
-                        wsJsonAddField(user, wsJsonInitString("name", clients[index].username));
-                        wsJsonAddField(msg, user2);
+                        // Update the username in the existing JSON (no need to rebuild)
+                        wsJson* userToUpdate = wsJsonGet(root, "user");
+                        if (userToUpdate) {
+                            // Update the name field with the server-side username
+                            strncpy(userToUpdate->object.children[0]->stringValue,
+                                    clients[index].username,
+                                    WS_JSON_MAX_VALUE_SIZE - 1);
+                        }
 
-                        wsJson* message2 = wsJsonInitChild("message");
-                        wsJsonAddField(message2, wsJsonInitString("text", text));
-                        wsJsonAddField(message2, wsJsonInitNumber("text_len", textLen));
-                        wsJsonAddField(message2, wsJsonInitNumber("info", 0));
-                        wsJsonAddField(msg, message2);
+                        // Clear the info flags for broadcast
+                        wsJson* messageToUpdate = wsJsonGet(root, "message");
+                        if (messageToUpdate) {
+                            wsJson* infoField = wsJsonGet(messageToUpdate, "info");
+                            if (infoField) infoField->numberValue = 0;
+                        }
 
+                        // Convert to string and broadcast
                         char jsonString[WS_BUFFER_SIZE];
-                        int32_t len = wsJsonToString(msg, jsonString, WS_BUFFER_SIZE);
+                        int32_t len = wsJsonToString(root, jsonString, WS_BUFFER_SIZE);
 
-                        // Broadcast the message to all other connected clients
                         unsigned char frame[WS_BUFFER_SIZE];
                         int frame_len = __ws_encode_frame(jsonString, len, frame);
+
+                        // Broadcast to clients
                         for (int j = 1; j < nfds; j++) {
-                            if (flags & WS_SEND_BACK && handshake_done[j - 1]) {
-                                int sent = send(fds[j].fd, frame, frame_len, 0);
-                                if (sent < 0) {
-                                    printf("Failed to send to client (fd=%d), will be disconnected\n", fds[j].fd);
-                                    fflush(stdout);
-                                }
-                            }
-                            else if (j != i && handshake_done[j - 1]) {
+                            // Skip sender unless SEND_BACK flag is set
+                            if (j == i && !(flags & WS_SEND_BACK)) continue;
+
+                            if (handshake_done[j - 1]) {
                                 int sent = send(fds[j].fd, frame, frame_len, 0);
                                 if (sent < 0) {
                                     printf("Failed to send to client (fd=%d), will be disconnected\n", fds[j].fd);
