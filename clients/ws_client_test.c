@@ -47,8 +47,6 @@ int main() {
 
     fprintf(stderr, "[TEST] Client initialized successfully!\n");
 
-    wsSendMessage(&client, "Yo wsp guys");
-
     while (1) {
         
         wsClientListen(&client);

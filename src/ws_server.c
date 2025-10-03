@@ -1,3 +1,4 @@
+#include <stdint.h>
 #define _GNU_SOURCE
 #include <stdio.h>      
 #include <stdlib.h>     
@@ -236,7 +237,10 @@ int main(int argc, char *argv[]) {
                     if (payload_len > 0) {
                         wsJson* message = wsJsonGet(root, "message");
                         double info = wsJsonGetNumber(message, "info");
-                        printf("Info: %d\n", info);
+                        uint64_t flags = (uint64_t)info;
+                        if (flags & WS_CHANGE_USERNAME) {
+                            printf("Change username message detected!\n");
+                        }
 
                         // Broadcast the message to all other connected clients
                         unsigned char frame[WS_BUFFER_SIZE];

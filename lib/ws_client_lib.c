@@ -107,12 +107,7 @@ int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const c
     wsJsonAddField(message, wsJsonInitNumber("info", WS_NO_BROADCAST | WS_CHANGE_USERNAME));
     wsJsonAddField(root, message);
 
-    //wsSendJson(client, root);
-    
-    char buffer[WS_BUFFER_SIZE];
-    wsJsonToString(root, buffer, WS_BUFFER_SIZE);
-    printf("Message: %s\n", buffer);
-    wsSendMessage(client, buffer);
+    wsSendJson(client, root);
 
     wsJsonFree(root);
 
