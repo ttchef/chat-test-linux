@@ -235,11 +235,22 @@ int main(int argc, char *argv[]) {
 
                     // If we successfully decoded a payload
                     if (payload_len > 0) {
+                        wsJson* user = wsJsonGet(root, "user");
+                        char* name = wsJsonGetString(user, "name");
                         wsJson* message = wsJsonGet(root, "message");
                         double info = wsJsonGetNumber(message, "info");
                         uint64_t flags = (uint64_t)info;
                         if (flags & WS_CHANGE_USERNAME) {
                             printf("Change username message detected!\n");
+                            
+                            // Loop through thew clients
+                            for (int32_t j = 0; j < MAX_CLIENTS; j++) {
+                                if (fds[i].fd == clients[j].id) {
+                                    clients[j].username = name;
+                                    printf("Updated client: %d name to: %s\n", clients[j].id, name);
+                                    break;
+                                }
+                            }
                         }
 
                         // Broadcast the message to all other connected clients
