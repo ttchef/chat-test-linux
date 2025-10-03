@@ -2,6 +2,7 @@
 #include "ws_client_lib.h"
 #include "ws_defines.h"
 #include "ws_globals.h"
+#include "ws_json.h"
 #include <asm-generic/errno.h>
 #include <netdb.h>
 
@@ -102,41 +103,41 @@ int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const c
     wsJsonAddField(root, user);
     
     wsJson* message = wsJsonInitChild("message");
-    wsJsonAddField(message, wsJsonInitString("text", ""));
+    wsJsonAddField(message, wsJsonInitString("text", "null"));
     wsJsonAddField(message, wsJsonInitNumber("info", WS_NO_BROADCAST | WS_CHANGE_USERNAME));
     wsJsonAddField(root, message);
 
-    wsSendJson(client, root);
+    //wsSendJson(client, root);
+    
+    char buffer[WS_BUFFER_SIZE];
+    wsJsonToString(root, buffer, WS_BUFFER_SIZE);
+    printf("Message: %s\n", buffer);
+    wsSendMessage(client, buffer);
+
     wsJsonFree(root);
 
     return WS_OK;
 }
 
 int32_t wsSendMessage(wsClient* client, const char *message) {
-
-    char buffer[WS_BUFFER_SIZE];
-    snprintf(buffer, WS_BUFFER_SIZE, "%s: %s", client->username, message);
-    size_t len = strlen(buffer);
-
+    size_t len = strlen(message);
     uint8_t frame[WS_BUFFER_SIZE];
-    int32_t frameLen = __ws_encode_frame(buffer, len, frame);
+    int32_t frameLen = __ws_encode_frame(message, len, frame);
     send(client->id, frame, frameLen, 0);
 
     return WS_OK;
 }
 
 int32_t wsSendMessageN(wsClient *client, const char *message, size_t n) {
-    char buffer[WS_BUFFER_SIZE];
     char tmp[WS_BUFFER_SIZE];
     if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
     strncpy(tmp, message, n);
     tmp[n] = '\0';
 
-    snprintf(buffer, WS_BUFFER_SIZE, "%s: %s", client->username, tmp);
-    size_t len = strlen(buffer);
+    size_t len = strlen(tmp);
 
     uint8_t frame[WS_BUFFER_SIZE];
-    int32_t frameLen = __ws_encode_frame(buffer, len, frame);
+    int32_t frameLen = __ws_encode_frame(tmp, len, frame);
     send(client->id, frame, frameLen, 0);
 
     return WS_OK;

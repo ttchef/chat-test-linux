@@ -228,9 +228,15 @@ int main(int argc, char *argv[]) {
                         continue;
                     }
 
+                    const char* cp = payload;
+                    printf("Message: %s\n", payload);
+                    wsJson* root = wsStringToJson(&cp);
+
                     // If we successfully decoded a payload
                     if (payload_len > 0) {
-                        
+                        wsJson* message = wsJsonGet(root, "message");
+                        double info = wsJsonGetNumber(message, "info");
+                        printf("Info: %d\n", info);
 
                         // Broadcast the message to all other connected clients
                         unsigned char frame[WS_BUFFER_SIZE];
@@ -249,6 +255,7 @@ int main(int argc, char *argv[]) {
                             }
                         }
                     }
+                    wsJsonFree(root);
                 }
             }
         }

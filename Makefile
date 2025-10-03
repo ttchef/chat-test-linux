@@ -16,11 +16,11 @@ STATIC_LIB = libclient.a
 LIB_SRC = $(wildcard $(LIB_DIR)/*.c)
 LIB_OBJ = $(LIB_SRC:.c=.o)
 
-all: $(SERVER_BIN) $(CLIENT_BIN) $(STATIC_LIB) $(TEST_BIN)
+all: $(STATIC_LIB) $(SERVER_BIN) $(CLIENT_BIN) $(TEST_BIN)
 
-$(SERVER_BIN): $(SRC_DIR)/ws_server.c
+$(SERVER_BIN): $(SRC_DIR)/ws_server.c $(STATIC_LIB)
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ -L. -lclient
 
 $(CLIENT_BIN): $(CLIENTS)/ws_client.c
 	@mkdir -p $(BIN_DIR)

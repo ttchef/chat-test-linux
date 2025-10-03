@@ -59,8 +59,9 @@ static inline int32_t __ws_decode_frame(uint8_t* data, int32_t len, char* payloa
     if (len < 2) return WS_ERROR;
 
     int opcode = data[0] & 0x0F;
-    if (opcode == 0x8) return WS_ERROR; // Signal connection should close
+    if (opcode == 0x8) return WS_ERROR; // Close
 
+    int masked = (data[1] & 0x80) != 0;
     uint64_t payload_len = data[1] & 0x7F;
     int pos = 2;
 
@@ -76,10 +77,20 @@ static inline int32_t __ws_decode_frame(uint8_t* data, int32_t len, char* payloa
         pos = 10;
     }
 
-    memcpy(payload, &data[pos], payload_len);
+    uint8_t mask[4];
+    if (masked) {
+        memcpy(mask, &data[pos], 4);
+        pos += 4;
+    }
+
+    for (uint64_t i = 0; i < payload_len; i++) {
+        if (masked)
+            payload[i] = data[pos + i] ^ mask[i % 4];
+        else
+            payload[i] = data[pos + i];
+    }
     payload[payload_len] = '\0';
-    return payload_len;
-}
+    return payload_len;}
 
 static inline int32_t __ws_client_handshake(int32_t sockfd, const char* ip) {
     char request[WS_BUFFER_SIZE];

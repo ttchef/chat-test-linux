@@ -214,13 +214,11 @@ wsJson* wsStringToJson(const char** string) {
         return NULL;
     }
 
-    wsJson* root = malloc(sizeof(wsJson));
+    wsJson* root = wsJsonInitChild(NULL);
     if (!root) {
         WS_LOG_ERROR("Failed to allocate json object\n");
         return NULL;
     }
-    memset(root, 0, sizeof(wsJson));
-    root->type = WS_JSON_OBJECT;
 
     *string = skipWhitespaces(*string);
     if (**string != '{') {
