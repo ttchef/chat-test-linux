@@ -46,3 +46,57 @@ void wsJsonAddChild(wsJson *parent, wsJson *child) {
     }
 }
 
+int32_t wsJsonToString(wsJson *obj, char *out, size_t size) {
+    if (!obj) {
+        WS_LOG_ERROR("Input json obj is NULL\n");
+        return WS_ERROR;
+    }
+    if (!out) {
+        WS_LOG_ERROR("Input buffer for output is NULL\n");
+        return WS_ERROR;
+    }
+    
+    size_t used = 0;
+
+    switch (obj->type) {
+        case WS_JSON_STRING:
+            used += snprintf(out + used, size - used, "\"%s\"", obj->stringValue);
+            break;
+        case WS_JSON_NUMBER:
+            used += snprintf(out + used, size - used, "%g", obj->numberValue);
+            break;
+        case WS_JSON_OBJECT:
+            used += snprintf(out + used, size - used, "{");
+            for (int32_t i = 0; i < obj->object.childCount; i++) {
+                wsJson* child = obj->object.children[i];
+                if (i > 0) {
+                    used += snprintf(out + used, size - used, ",");
+                }
+                used += snprintf(out + used, size - used, "\"%s\"", child->key);
+                wsJsonToString(child, out + used, size - used);
+                used = strlen(out);
+            }
+            used += snprintf(out + used, size - used, "}");
+            break;
+        default:
+            WS_LOG_ERROR("Failed to parse json into string\n");
+            return WS_ERROR;
+    }
+
+    return WS_OK;
+}
+
+
+void wsJsonFree(wsJson *obj) {
+    if (!obj) {
+        WS_LOG_ERROR("JSON obj is NULL on free!\n");
+        return;
+    }
+    if (obj->type == WS_JSON_OBJECT) {
+        for (int32_t i = 0; i < obj->object.childCount; i++) {
+            wsJsonFree(obj->object.children[i]);
+        }
+    }
+    free(obj);
+}
+

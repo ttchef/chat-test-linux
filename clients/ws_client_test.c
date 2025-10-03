@@ -9,9 +9,25 @@ void messageCallback(wsClient* client, const char* message, const char* username
 
 int main() {
 
+    // JSON test 
+    wsJson* root = wsJsonInitObject(NULL);
+    wsJson* user = wsJsonInitObject("user");
+    
+    wsJsonAddChild(user, wsJsonInitString("name", "ttchef"));
+    wsJsonAddChild(user, wsJsonInitNumber("age", 23));
+    wsJsonAddChild(root, user);
+    wsJsonAddChild(root, wsJsonInitString("msg", "Yo wsp"));
+    
+    char out[1024] = {0};
+    wsJsonToString(root, out, sizeof(out));
+    printf("%s\n", out);
+
+    wsJsonFree(root);
+
+
     wsClient client = {0};
     fprintf(stderr, "[TEST] Starting client initialization...\n");
-    if (wsInitClient(&client, "shit.nobeggar.com", "80", "ttchef") == WS_ERROR) {
+    if (wsInitClient(&client, "127.0.0.1", "9999", "ttchef") == WS_ERROR) {
         fprintf(stderr, "Failed to init wsClient!\n");
         return -1;
     }
@@ -24,7 +40,6 @@ int main() {
 
     while (1) {
         
-        printf("yoo\n");
         wsClientListen(&client);
     }
 

@@ -19,3 +19,4 @@ ws_client_test.o
 src/client.log 
 src/server.log
 lib/ws_client_lib.o
+lib/ws_json.o

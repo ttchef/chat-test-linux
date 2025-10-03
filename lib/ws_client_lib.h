@@ -16,4 +16,4 @@ int32_t __ws_encode_frame(const char* payload, int32_t len, uint8_t* frame);
 int32_t __ws_decode_frame(uint8_t* data, int32_t len, char* payload);
 int32_t __ws_client_handshake(int32_t sockfd, const char* ip);
 
-
+#endif
