@@ -2,8 +2,7 @@
 #ifndef WS_JSON_H
 #define WS_JSON_H
 
-#define WS_JSON_ERROR -1 
-#define WS_JSON_OK 0
+#include "ws_globals.h"
 
 #define WS_JSON_MAX_KEY_SIZE 64 
 #define WS_JSON_MAX_VALUE_SIZE 256
@@ -18,23 +17,24 @@ typedef enum {
     WS_JSON_OBJECT,
 } wsJsonType;
 
-typedef struct wsJsonField {
+typedef struct wsJson {
     char key[WS_JSON_MAX_KEY_SIZE];
     wsJsonType type; 
     union {
         char stringValue[WS_JSON_MAX_VALUE_SIZE];
         double numberValue;
         struct {
-            struct wsJsonField* children[WS_JSON_OBJECT_MAX_FIELDS];
+            struct wsJson* children[WS_JSON_OBJECT_MAX_FIELDS];
             int32_t childCount;
         } object;
     };
 } wsJson;
 
-int32_t wsJsonAddString(wsJson* obj, const char* key, const char* val);
-int32_t wsJsonAddNumber(wsJson* obj, const char* key, double val);
-int32_t wsJsonCreateChild(wsJson* child, const char* key);
-int32_t wsJsonAddChild(wsJson* obj, wsJson* child);
-int32_t wsJsonToString(wsJson* obj, char* out, size_t size);
+// Create Notes
+wsJson* wsJsonInitObject(const char* key);
+wsJson* wsJsonInitString(const char* key, const char* val);
+wsJson* wsJsonInitNumber(const char* key, double val);
+
+void wsJsonAddChild(wsJson* parent, wsJson* child);
 
 #endif
