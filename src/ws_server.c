@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
                     }
 
                     const char* cp = payload;
-                    printf("Message: %s\n", payload);
+                    printf("Server recived Message: %s\n", payload);
                     wsJson* root = wsStringToJson(&cp);
 
                     // If we successfully decoded a payload
@@ -251,19 +251,21 @@ int main(int argc, char *argv[]) {
                         char* name = wsJsonGetString(user, "name");
 
                         wsJson* message = wsJsonGet(root, "message");
+                        const char* text = wsJsonGetString(message, "text");
+                        double textLen = wsJsonGetNumber(message, "text_len");
+
                         double info = wsJsonGetNumber(message, "info");
                         uint64_t flags = (uint64_t)info;
 
+                        int32_t index = getClientIndex(clients, fds[i].fd);
+                        if (index == -1) {
+                            WS_LOG_ERROR("Failed to find client with fitting index: %d\n", fds[i].fd);
+                            continue;
+                        }
+
                         if (flags & WS_CHANGE_USERNAME) {
                             printf("Change username message detected!\n");
-                            
-                            int32_t index = getClientIndex(clients, fds[i].fd);
-                            if (index == -1) {
-                                WS_LOG_ERROR("Failed to find client with fitting index: %d\n", fds[i].fd);
-                                continue;
-                            }
-                            clients[index].username = name;
-
+                            clients[index].username = strdup(name);
                             printf("Updated client: %d name to: %s\n", clients[index].id, name);
                         }
 
@@ -272,9 +274,24 @@ int main(int argc, char *argv[]) {
                             continue;
                         }
 
+                        // Construct json
+                        wsJson* msg = wsJsonInitChild(NULL);
+                        wsJson* user2 = wsJsonInitChild("user");
+                        wsJsonAddField(user, wsJsonInitString("name", clients[index].username));
+                        wsJsonAddField(msg, user2);
+
+                        wsJson* message2 = wsJsonInitChild("message");
+                        wsJsonAddField(message2, wsJsonInitString("text", text));
+                        wsJsonAddField(message2, wsJsonInitNumber("text_len", textLen));
+                        wsJsonAddField(message2, wsJsonInitNumber("info", 0));
+                        wsJsonAddField(msg, message2);
+
+                        char jsonString[WS_BUFFER_SIZE];
+                        int32_t len = wsJsonToString(msg, jsonString, WS_BUFFER_SIZE);
+
                         // Broadcast the message to all other connected clients
                         unsigned char frame[WS_BUFFER_SIZE];
-                        int frame_len = __ws_encode_frame(payload, payload_len, frame);
+                        int frame_len = __ws_encode_frame(jsonString, len, frame);
                         for (int j = 1; j < nfds; j++) {
                             if (flags & WS_SEND_BACK && handshake_done[j - 1]) {
                                 int sent = send(fds[j].fd, frame, frame_len, 0);

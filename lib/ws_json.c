@@ -99,7 +99,7 @@ int32_t wsJsonToString(wsJson *obj, char *out, size_t size) {
             return WS_ERROR;
     }
 
-    return WS_OK;
+    return used;
 }
 
 static char* skipWhitespaces(const char* string) {

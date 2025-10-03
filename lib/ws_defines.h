@@ -34,6 +34,7 @@ struct wsClient {
     const char* username;
     wsOnMessageCallbackType onMessageCallbackType;
     wsOnMessageCallbackPFN onMessageCallback;
+    bool sendMessagefromTerminal;
 };
 
 // Internal

@@ -11,15 +11,12 @@ void messageCallback(wsClient* client, time_t time, wsJson* root) {
 
 int main() {
     wsClient client = {0};
-    fprintf(stderr, "[TEST] Starting client initialization...\n");
     if (wsInitClient(&client, "127.0.0.1", "9999", "ttchef") == WS_ERROR) {
         fprintf(stderr, "Failed to init wsClient!\n");
         return -1;
-    }
-    
+    }  
+    client.sendMessagefromTerminal = true;
     wsSetOnMessageCallback(&client, (wsOnMessageCallbackPFN)messageCallback, WS_MESSAGE_CALLBACK_JSON);
-
-    fprintf(stderr, "[TEST] Client initialized successfully!\n");
 
     while (1) {
         

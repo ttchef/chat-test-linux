@@ -92,9 +92,10 @@ int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const c
     client->port = port;
     client->fds[0] = (struct pollfd){0, POLLIN, 0};
     client->fds[1] = (struct pollfd){sockfd, POLLIN, 0};
+    client->sendMessagefromTerminal = false;
 
     if (!username) client->username = "Anonym\0";
-    else client->username = username;
+    else client->username = strdup(username);
 
     wsChangeUsername(client, username);
     
@@ -154,10 +155,40 @@ int32_t wsClientListen(wsClient *client) {
         return WS_OK;
     }
 
+    // Check stdin 
+    if (client->sendMessagefromTerminal && client->fds[0].revents & POLLIN) {
+        char buffer[256];
+        size_t len = read(0, buffer, 255);
+        if (len > 0) {
+            buffer[len - 1] = '\0';
+
+            // construct send message
+            wsJson* root = wsJsonInitChild(NULL);
+            wsJson* user = wsJsonInitChild("user");
+            wsJsonAddField(user, wsJsonInitString("name", client->username));
+            wsJsonAddField(root, user);
+
+            wsJson* message = wsJsonInitChild("message");
+            wsJsonAddField(message, wsJsonInitString("text", buffer));
+            wsJsonAddField(message, wsJsonInitNumber("text_len", strlen(buffer)));
+            wsJsonAddField(message, wsJsonInitNumber("info", 0));
+            wsJsonAddField(root, message);
+
+            char tmp[WS_BUFFER_SIZE];
+            wsJsonToString(root, tmp, WS_BUFFER_SIZE);
+            wsJsonFree(root);
+        
+            uint8_t frame[WS_BUFFER_SIZE];
+            int frameLen = __ws_encode_frame(tmp, WS_BUFFER_SIZE, frame);
+            send(client->id, frame, frameLen, 0);
+        }
+    }
+
     // Socket has data
     if (client->fds[1].revents & POLLIN) {
         uint8_t buffer[WS_BUFFER_SIZE];
         int32_t len = recv(client->id, buffer, WS_BUFFER_SIZE, 0);
+
         if (len == 0) {
             WS_LOG_DEBUG("Server disconnected\n");
             return WS_OK;
@@ -201,6 +232,7 @@ int32_t wsChangeUsername(wsClient *client, const char *username) {
     
     wsJson* message = wsJsonInitChild("message");
     wsJsonAddField(message, wsJsonInitString("text", "null"));
+    wsJsonAddField(message, wsJsonInitNumber("text_len", 4));
     wsJsonAddField(message, wsJsonInitNumber("info", WS_NO_BROADCAST | WS_CHANGE_USERNAME));
     wsJsonAddField(root, message);
 
