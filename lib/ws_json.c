@@ -93,6 +93,42 @@ int32_t wsJsonToString(wsJson *obj, char *out, size_t size) {
 }
 
 
+wsJson* wsJsonGet(wsJson* obj, const char* key) {
+    if (!obj || !key) {
+        WS_LOG_ERROR("Invalid input is NULL\n");
+        return NULL;
+    } 
+    if (obj->type != WS_JSON_OBJECT) {
+        WS_LOG_ERROR("Obj is not from type WS_JSON_OBJECT\n");
+        return NULL;
+    }
+
+    for (int32_t i = 0; i < obj->object.childCount; i++) {
+        wsJson* child = obj->object.children[i];
+        if (child->key && strcmp(child->key, key) == 0) {
+            return child;
+        }
+    }
+
+    return NULL;
+}
+
+const char* wsJsonGetString(wsJson* obj, const char* key) {
+    wsJson* child = wsJsonGet(obj, key);
+    if (child && child->type == WS_JSON_STRING) {
+        return child->stringValue;
+    }
+    return NULL;
+}
+
+double wsJsonGetNumber(wsJson *obj, const char *key) {
+    wsJson* child = wsJsonGet(obj, key);
+    if (child && child->type == WS_JSON_NUMBER) {
+        return child->numberValue;
+    }
+    return -1;
+}
+
 void wsJsonFree(wsJson *obj) {
     if (!obj) {
         WS_LOG_ERROR("JSON obj is NULL on free!\n");

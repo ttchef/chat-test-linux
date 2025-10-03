@@ -22,6 +22,11 @@ int main() {
     wsJsonToString(root, out, sizeof(out));
     printf("%s\n", out);
 
+    // Get Componennts
+    wsJson* userObj = wsJsonGet(root, "user");
+    printf("name: %s\n", wsJsonGetString(userObj, "name"));
+    printf("age: %.0f\n", wsJsonGetNumber(userObj, "age"));
+
     wsJsonFree(root);
 
 

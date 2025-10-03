@@ -37,8 +37,10 @@ wsJson* wsJsonInitNumber(const char* key, double val);
 
 // Adds a new child to the json object
 void wsJsonAddChild(wsJson* parent, wsJson* child);
-
 int32_t wsJsonToString(wsJson* obj, char* out, size_t size);
+wsJson* wsJsonGet(wsJson* obj, const char* key);
+const char* wsJsonGetString(wsJson* obj, const char* key);
+double wsJsonGetNumber(wsJson* obj, const char* key);
 
 // Goes recursive trough the json tree and frees everything
 void wsJsonFree(wsJson* obj);
