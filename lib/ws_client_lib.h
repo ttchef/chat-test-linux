@@ -12,5 +12,7 @@ int32_t wsSetMessageCallback(wsClient* client, wsMessageCallbackPFN functionPtr)
 int32_t wsClientListen(wsClient* client);
 int32_t wsDeinitClient(wsClient* client);
 
+int32_t wsChangeUsername(wsClient* client, const char* username);
+
 
 #endif

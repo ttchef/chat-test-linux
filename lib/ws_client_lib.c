@@ -96,21 +96,8 @@ int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const c
     if (!username) client->username = "Anonym\0";
     else client->username = username;
 
-    wsJson* root = wsJsonInitChild(NULL);
-
-    wsJson* user = wsJsonInitChild("user");
-    wsJsonAddField(user, wsJsonInitString("name", client->username));
-    wsJsonAddField(root, user);
+    wsChangeUsername(client, username);
     
-    wsJson* message = wsJsonInitChild("message");
-    wsJsonAddField(message, wsJsonInitString("text", "null"));
-    wsJsonAddField(message, wsJsonInitNumber("info", WS_NO_BROADCAST | WS_CHANGE_USERNAME));
-    wsJsonAddField(root, message);
-
-    wsSendJson(client, root);
-
-    wsJsonFree(root);
-
     return WS_OK;
 }
 
@@ -206,5 +193,30 @@ int32_t wsDeinitClient(wsClient* client) {
     return WS_OK;
 }
 
+int32_t wsChangeUsername(wsClient *client, const char *username) {
+    if (!username || !client) {
+        WS_LOG_ERROR("Invalid function input parameters are NULL\n");
+        return WS_ERROR;
+    } 
+
+    client->username = username;
+    wsJson* root = wsJsonInitChild(NULL);
+
+    wsJson* user = wsJsonInitChild("user");
+    wsJsonAddField(user, wsJsonInitString("name", client->username));
+    wsJsonAddField(root, user);
+    
+    wsJson* message = wsJsonInitChild("message");
+    wsJsonAddField(message, wsJsonInitString("text", "null"));
+    wsJsonAddField(message, wsJsonInitNumber("info", WS_NO_BROADCAST | WS_CHANGE_USERNAME));
+    wsJsonAddField(root, message);
+
+    wsSendJson(client, root);
+
+    wsJsonFree(root);
+
+
+    return WS_OK;
+}
 
 
