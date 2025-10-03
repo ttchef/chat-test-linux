@@ -10,13 +10,13 @@ void messageCallback(wsClient* client, const char* message, const char* username
 int main() {
 
     // JSON test 
-    wsJson* root = wsJsonInitObject(NULL);
-    wsJson* user = wsJsonInitObject("user");
+    wsJson* root = wsJsonInitChild(NULL);
+    wsJson* user = wsJsonInitChild("user");
     
-    wsJsonAddChild(user, wsJsonInitString("name", "ttchef"));
-    wsJsonAddChild(user, wsJsonInitNumber("age", 23));
-    wsJsonAddChild(root, user);
-    wsJsonAddChild(root, wsJsonInitString("msg", "Yo wsp"));
+    wsJsonAddField(user, wsJsonInitString("name", "ttchef"));
+    wsJsonAddField(user, wsJsonInitNumber("age", 23));
+    wsJsonAddField(root, user);
+    wsJsonAddField(root, wsJsonInitString("msg", "Yo wsp"));
     
     char out[1024] = {0};
     wsJsonToString(root, out, sizeof(out));

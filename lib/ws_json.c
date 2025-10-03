@@ -2,7 +2,7 @@
 #include "ws_json.h"
 #include "ws_globals.h"
 
-wsJson* wsJsonInitObject(const char* key) {
+wsJson* wsJsonInitChild(const char* key) {
     wsJson* obj = malloc(sizeof(wsJson));
     if (!obj) {
         WS_LOG_ERROR("Failed to allocate memory for json object: %s\n", key);
@@ -40,7 +40,7 @@ wsJson* wsJsonInitNumber(const char* key, double val) {
     return obj;
 }
 
-void wsJsonAddChild(wsJson *parent, wsJson *child) {
+void wsJsonAddField(wsJson *parent, wsJson *child) {
     if (parent && parent->type == WS_JSON_OBJECT && parent->object.childCount < WS_JSON_OBJECT_MAX_FIELDS) {
         parent->object.children[parent->object.childCount++] = child;
     }
