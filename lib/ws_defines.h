@@ -11,9 +11,20 @@ typedef enum {
     WS_CHANGE_USERNAME = (1 << 2),
 } wsMessageInfo;
 
+typedef enum {
+    WS_MESSAGE_CALLBACK_JSON,
+    WS_MESSAGE_CALLBACK_RAW,
+} wsOnMessageCallbackType;
+
 typedef struct wsClient wsClient;
 
-typedef void (*wsMessageCallbackPFN)(wsClient* client, const char* message, const char* username, time_t time);
+typedef void (*wsOnMessageCallbackRawPFN)(wsClient* client, time_t time, const char* message);
+typedef void (*wsOnMessageCallbackJsonPFN)(wsClient* client, time_t time, wsJson* root);
+
+typedef union {
+    wsOnMessageCallbackJsonPFN json;
+    wsOnMessageCallbackRawPFN raw;
+} wsOnMessageCallbackPFN;
 
 struct wsClient {
     int32_t id;
@@ -21,7 +32,8 @@ struct wsClient {
     const char* port;
     struct pollfd fds[2];
     const char* username;
-    wsMessageCallbackPFN messageFunc;
+    wsOnMessageCallbackType onMessageCallbackType;
+    wsOnMessageCallbackPFN onMessageCallback;
 };
 
 // Internal

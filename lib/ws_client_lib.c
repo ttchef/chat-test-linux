@@ -138,14 +138,9 @@ int32_t wsSendJson(wsClient *client, wsJson *obj) {
     return WS_OK;
 }
 
-int32_t wsSetMessageCallback(wsClient* client, wsMessageCallbackPFN functionPtr) {
-    if (!functionPtr) {
-        WS_LOG_ERROR("Input function pointer is NULL\n");
-        return WS_ERROR;
-    }
-
-    client->messageFunc = functionPtr;    
-    
+int32_t wsSetOnMessageCallback(wsClient* client, wsOnMessageCallbackPFN functionPtr, wsOnMessageCallbackType type) {
+    client->onMessageCallback = functionPtr;  
+    client->onMessageCallbackType = type;
     return WS_OK;
 }
 
@@ -170,17 +165,15 @@ int32_t wsClientListen(wsClient *client) {
         if (len > 0) {
             char msg[WS_BUFFER_SIZE];
             int32_t msgLen = __ws_decode_frame(buffer, len, msg);
-            const char* colon = strchr(msg, ':');
-            if (colon && msgLen > 0) {
-                size_t i = colon - msg;
-                char buffer[64];
-                strncpy(buffer, msg, i);
-                buffer[i] = '\0';
-                client->messageFunc(client, msg, buffer, time(NULL));
+            printf("%s\n", msg);
+            if (client->onMessageCallbackType == WS_MESSAGE_CALLBACK_JSON) {
+                const char* cp = msg;
+                wsJson* root = wsStringToJson(&cp);
+                client->onMessageCallback.json(client, time(NULL), root);
+                wsJsonFree(root);
             }
-            else {
-                WS_LOG_ERROR("Couldnt find username or had problems decoding the message\n");
-                return WS_ERROR;
+            else if (client->onMessageCallbackType == WS_MESSAGE_CALLBACK_RAW) {
+                client->onMessageCallback.raw(client, time(NULL), msg);
             }
         }
     } 

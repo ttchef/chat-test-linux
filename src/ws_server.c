@@ -1,3 +1,4 @@
+#include <setjmp.h>
 #include <stdint.h>
 #define _GNU_SOURCE
 #include <stdio.h>      
@@ -18,10 +19,14 @@
 #define MAX_CLIENTS 10
 
 int32_t getClientIndex(wsClient* clients, int32_t i) {
+    int32_t ret = -1;
     for (int32_t j = 0; j < MAX_CLIENTS; j++) {
-        if (clients[j].id == i) return j; break;
+        if (clients[j].id == i) {
+            ret = j;
+            break;
+        }
     }
-    return -1;
+    return ret;
 }
 
 int main(int argc, char *argv[]) {
@@ -244,6 +249,7 @@ int main(int argc, char *argv[]) {
                     if (payload_len > 0) {
                         wsJson* user = wsJsonGet(root, "user");
                         char* name = wsJsonGetString(user, "name");
+
                         wsJson* message = wsJsonGet(root, "message");
                         double info = wsJsonGetNumber(message, "info");
                         uint64_t flags = (uint64_t)info;
@@ -261,15 +267,23 @@ int main(int argc, char *argv[]) {
                             printf("Updated client: %d name to: %s\n", clients[index].id, name);
                         }
 
+                        if (flags & WS_NO_BROADCAST) {
+                            wsJsonFree(root);
+                            continue;
+                        }
+
                         // Broadcast the message to all other connected clients
                         unsigned char frame[WS_BUFFER_SIZE];
                         int frame_len = __ws_encode_frame(payload, payload_len, frame);
-
-                        // Send to all clients except the sender
                         for (int j = 1; j < nfds; j++) {
-                            // Skip if this is the sender or if client hasn't completed handshake
-                            if (j != i && handshake_done[j - 1]) {
-                                // Send the encoded frame, check for errors
+                            if (flags & WS_SEND_BACK && handshake_done[j - 1]) {
+                                int sent = send(fds[j].fd, frame, frame_len, 0);
+                                if (sent < 0) {
+                                    printf("Failed to send to client (fd=%d), will be disconnected\n", fds[j].fd);
+                                    fflush(stdout);
+                                }
+                            }
+                            else if (j != i && handshake_done[j - 1]) {
                                 int sent = send(fds[j].fd, frame, frame_len, 0);
                                 if (sent < 0) {
                                     printf("Failed to send to client (fd=%d), will be disconnected\n", fds[j].fd);
