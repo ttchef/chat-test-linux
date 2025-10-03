@@ -13,15 +13,11 @@ int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const c
 
     // Convert URL to ip
     WS_LOG_DEBUG("[WS CLIENT] Attempting to resolve %s:%s\n", ip, port);
-    fflush(stdout);
-    fflush(stderr);
     if (getaddrinfo(ip, port, &hints, &result) != 0) {
         WS_LOG_ERROR("[WS CLIENT] Failed to convert URL to valid IP address %s!\n", ip);
-        fflush(stderr);
         return WS_ERROR;
     }
     WS_LOG_DEBUG("[WS CLIENT] Successfully resolved %s:%s\n", ip, port);
-    fflush(stdout);
 
     // Create socket
     int32_t sockfd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
@@ -96,6 +92,10 @@ int32_t wsInitClient(wsClient* client, const char* ip, const char* port, const c
 
     if (!username) client->username = "Anonym\0";
     else client->username = username;
+
+    char tmp[WS_BUFFER_SIZE];
+    snprintf(tmp, WS_BUFFER_SIZE, "[ID] %s\n\0", client->username);
+    wsSendMessage(client, tmp);
 
     return WS_OK;
 }
