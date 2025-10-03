@@ -67,12 +67,18 @@ int32_t wsJsonToString(wsJson *obj, char *out, size_t size) {
             break;
         case WS_JSON_OBJECT:
             used += snprintf(out + used, size - used, "{");
+#ifdef WS_JSON_ADD_NEW_LINE
+            used += snprintf(out + used, size - used, "\n");
+#endif
             for (int32_t i = 0; i < obj->object.childCount; i++) {
                 wsJson* child = obj->object.children[i];
                 if (i > 0) {
                     used += snprintf(out + used, size - used, ",");
+#ifdef WS_JSON_ADD_NEW_LINE
+                    used += snprintf(out + used, size - used, "\n");
+#endif
                 }
-                used += snprintf(out + used, size - used, "\"%s\"", child->key);
+                used += snprintf(out + used, size - used, "\"%s\": ", child->key);
                 wsJsonToString(child, out + used, size - used);
                 used = strlen(out);
             }
