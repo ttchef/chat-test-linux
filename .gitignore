@@ -26,3 +26,5 @@ debug_*
 clients/js-client/node_modules/
 
 
+/servers/js-server/node_modules
+/servers/ts-server/node_modules
