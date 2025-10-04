@@ -12,9 +12,9 @@
 #include <netdb.h>      
 #include <poll.h>       
 #include <signal.h>     
-#include "sha1.h"       
+#include "sha1.h"
 
-#include "../lib/ws_defines.h"
+#include "../../lib/ws_defines.h"
 
 #define MAX_CLIENTS 10
 
