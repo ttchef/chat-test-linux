@@ -2,13 +2,57 @@
 using System.IO;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Spectre.Console;
 
+// Message flags
+class MessageFlags
+{
+    public const int WS_NO_BROADCAST = 1 << 0;
+    public const int WS_SEND_BACK = 1 << 1;
+    public const int WS_CHANGE_USERNAME = 1 << 2;
+}
+
+// JSON message structure
+class User
+{
+    public string name { get; set; } = "";
+}
+
+class Message
+{
+    public string text { get; set; } = "";
+    public int text_len { get; set; }
+    public int info { get; set; }
+}
+
+class WSMessage
+{
+    public User user { get; set; } = new User();
+    public Message message { get; set; } = new Message();
+}
+
 class Program
 {
     private const int BUFFER_SIZE = 4096;
+
+    // Helper to create JSON message
+    static string CreateJsonMessage(string username, string text, int flags = 0)
+    {
+        var msg = new WSMessage
+        {
+            user = new User { name = username },
+            message = new Message
+            {
+                text = text,
+                text_len = text.Length,
+                info = flags
+            }
+        };
+        return JsonSerializer.Serialize(msg);
+    }
 
     static async Task Main(string[] args)
     {
@@ -95,6 +139,8 @@ class Program
         // Build WebSocket URI (ws:// for unencrypted connections)
         Uri serverUri = new Uri($"ws://{host}:{port}");
 
+        string currentUsername = name ?? "Anonym";
+
         using (ClientWebSocket ws = new ClientWebSocket())
         {
             // Disable server certificate validation for development (allows self-signed certs)
@@ -122,15 +168,16 @@ class Program
                 // Send username if provided (mimicking lines 394-407)
                 if (nameType && !string.IsNullOrEmpty(name))
                 {
-                    string idMsg = $"[ID]{name}";
-                    byte[] idBuffer = Encoding.UTF8.GetBytes(idMsg);
+                    string jsonMsg = CreateJsonMessage(currentUsername, "null", MessageFlags.WS_CHANGE_USERNAME | MessageFlags.WS_NO_BROADCAST);
+                    byte[] idBuffer = Encoding.UTF8.GetBytes(jsonMsg);
                     await ws.SendAsync(new ArraySegment<byte>(idBuffer), WebSocketMessageType.Text, true, CancellationToken.None);
                 }
 
                 // Send test message if in headless mode (mimicking lines 410-420)
                 if (headless && !string.IsNullOrEmpty(testMsg))
                 {
-                    byte[] msgBuffer = Encoding.UTF8.GetBytes(testMsg);
+                    string jsonMsg = CreateJsonMessage(currentUsername, testMsg, 0);
+                    byte[] msgBuffer = Encoding.UTF8.GetBytes(jsonMsg);
                     await ws.SendAsync(new ArraySegment<byte>(msgBuffer), WebSocketMessageType.Text, true, CancellationToken.None);
                     Console.Write($"Sent: {testMsg}");
                     Console.Out.Flush();
@@ -190,8 +237,9 @@ class Program
                             break;
                         }
 
-                        // Send input with newline (mimicking lines 456-459)
-                        byte[] buffer = Encoding.UTF8.GetBytes(input + "\n");
+                        // Send input as JSON message (mimicking lines 456-459)
+                        string jsonMsg = CreateJsonMessage(currentUsername, input, 0);
+                        byte[] buffer = Encoding.UTF8.GetBytes(jsonMsg);
                         await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
                         AnsiConsole.MarkupLine($"[green]Sent: {input.EscapeMarkup()}[/]");
                     }

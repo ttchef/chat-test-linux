@@ -10,6 +10,23 @@ const BUFFER_SIZE = 4096;
 const DEFAULT_IP = 'localhost';
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
+// Message flags
+const WS_NO_BROADCAST = 1 << 0;
+const WS_SEND_BACK = 1 << 1;
+const WS_CHANGE_USERNAME = 1 << 2;
+
+// Create JSON message for the server
+function createJsonMessage(username, text, flags = 0) {
+    return JSON.stringify({
+        user: { name: username },
+        message: {
+            text: text,
+            text_len: text.length,
+            info: flags
+        }
+    });
+}
+
 // Parse command-line arguments
 function parseArgs() {
     const args = {
@@ -183,6 +200,7 @@ async function main() {
     let rl = null;
 
     let handshakeComplete = false;
+    let currentUsername = args.name || 'Anonym';
 
     socket.on('connect', async () => {
         console.log(`Connected to server at ${args.host}:${args.port}`);
@@ -194,13 +212,14 @@ async function main() {
 
             // Send username if provided
             if (args.nameType && args.name) {
-                const idMsg = `[ID]${args.name}`;
-                socket.write(encodeFrame(idMsg));
+                const jsonMsg = createJsonMessage(currentUsername, 'null', WS_CHANGE_USERNAME | WS_NO_BROADCAST);
+                socket.write(encodeFrame(jsonMsg));
             }
 
             // Send test message if in headless mode
             if (args.headless && args.testMsg) {
-                socket.write(encodeFrame(args.testMsg));
+                const jsonMsg = createJsonMessage(currentUsername, args.testMsg, 0);
+                socket.write(encodeFrame(jsonMsg));
                 process.stdout.write(`Sent: ${args.testMsg}`);
             }
 
@@ -226,7 +245,8 @@ async function main() {
                         process.exit(0);
                     }
 
-                    socket.write(encodeFrame(input + '\n'));
+                    const jsonMsg = createJsonMessage(currentUsername, input, 0);
+                    socket.write(encodeFrame(jsonMsg));
                     console.log(`Sent: ${input}`);
                     rl.prompt();
                 });
