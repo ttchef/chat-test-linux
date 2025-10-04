@@ -3,30 +3,28 @@ CFLAGS = -g -Wall -DWS_ENABLE_LOG_DEBUG -DWS_ENABLE_LOG_ERROR
 AR = ar
 ARFLAGS = cr
 
-SRC_DIR = src
 LIB_DIR = lib
-CLIENTS = clients
+CLIENTS_DIR = clients
 BIN_DIR = bin
+SERVERS_DIR = servers
 
-SERVER_BIN = $(BIN_DIR)/ws_server
 CLIENT_BIN = $(BIN_DIR)/ws_client
-TEST_BIN   = $(BIN_DIR)/ws_client_test
+TEST_BIN = $(BIN_DIR)/ws_client_test
 STATIC_LIB = libclient.a
 
 LIB_SRC = $(wildcard $(LIB_DIR)/*.c)
 LIB_OBJ = $(LIB_SRC:.c=.o)
 
-all: $(STATIC_LIB) $(SERVER_BIN) $(CLIENT_BIN) $(TEST_BIN)
+all: $(STATIC_LIB) $(CLIENT_BIN) $(TEST_BIN) c-server
 
-$(SERVER_BIN): $(SRC_DIR)/ws_server.c $(STATIC_LIB)
-	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $< -o $@ -L. -lclient
+c-server: $(STATIC_LIB)
+	@$(MAKE) -C $(SERVERS_DIR)/c-server
 
-$(CLIENT_BIN): $(CLIENTS)/ws_client.c
+$(CLIENT_BIN): $(CLIENTS_DIR)/ws_client.c
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(TEST_BIN): $(CLIENTS)/ws_client_test.c $(STATIC_LIB)
+$(TEST_BIN): $(CLIENTS_DIR)/ws_client_test.c $(STATIC_LIB)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $< -o $@ -L. -lclient
 
@@ -38,6 +36,7 @@ $(STATIC_LIB): $(LIB_OBJ)
 
 clean:
 	rm -rf $(BIN_DIR) $(STATIC_LIB) $(LIB_OBJ)
+	@$(MAKE) -C $(SERVERS_DIR)/c-server clean
 
-.PHONY: all clean
+.PHONY: all clean c-server
 
