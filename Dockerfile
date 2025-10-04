@@ -10,12 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy all source files and headers
-COPY src/ ./src/
+# Copy the C server source files and headers
+COPY servers/c-server/ ./servers/c-server/
+COPY lib/ ./lib/
 
 # Build the server
-WORKDIR /app/src
-RUN gcc -o ws_server ws_server.c
+WORKDIR /app/servers/c-server
+RUN gcc -o ws_server ws_server.c ../../lib/ws_json.c ../../lib/ws_client_lib.c -I../../lib -DWS_ENABLE_LOG_DEBUG -DWS_ENABLE_LOG_ERROR
 
 # Create minimal runtime image
 FROM debian:bookworm-slim
@@ -27,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy built binary from builder
 WORKDIR /app
-COPY --from=builder /app/src/ws_server .
+COPY --from=builder /app/servers/c-server/ws_server .
 
 # Expose WebSocket port
 EXPOSE 9999
