@@ -3,6 +3,7 @@ const net = std.net;
 const crypto = std.crypto;
 const base64 = std.base64;
 const mem = std.mem;
+const json = @import("json_bindings.zig");
 
 const MAX_CLIENTS = 10;
 const PORT = 9999;
@@ -281,15 +282,71 @@ pub fn main() !void {
                     const payload_str = payload[0..payload_len];
                     std.debug.print("Server received Message: {s}\n", .{payload_str});
 
-                    // Simple JSON parsing for the message
-                    // In production, use a proper JSON parser
-                    // For now, we'll just echo back with the client's username
+                    // Parse JSON message
+                    const root = json.parseJson(payload_str);
+                    if (root == null) {
+                        std.debug.print("Failed to parse JSON message, skipping...\n", .{});
+                        continue;
+                    }
+                    defer json.free(root);
 
-                    // Broadcast to all clients
-                    const frame = try encodeWebSocketFrame(allocator, payload_str);
+                    // Extract user and message data
+                    const user_obj = json.getObject(root, "user");
+                    const name = json.getString(user_obj, "name");
+
+                    const message_obj = json.getObject(root, "message");
+                    const info = json.getNumber(message_obj, "info");
+                    const flags: u64 = @intFromFloat(info);
+
+                    // Handle username change
+                    if (flags & WS_CHANGE_USERNAME != 0) {
+                        std.debug.print("Change username message detected!\n", .{});
+                        if (name) |n| {
+                            try client.setUsername(n);
+                            std.debug.print("Updated client: {d} name to: {s}\n", .{ client.id, n });
+                        }
+                    }
+
+                    // Don't broadcast if NO_BROADCAST flag is set
+                    if (flags & WS_NO_BROADCAST != 0) {
+                        continue;
+                    }
+
+                    // Build new JSON with server-side username and cleared flags
+                    var json_buffer: [BUFFER_SIZE]u8 = undefined;
+                    const new_root = json.initChild("") orelse continue;
+                    defer json.free(new_root);
+
+                    // Create user object with server-side username
+                    const new_user = json.initChild("user") orelse continue;
+                    const user_name = json.initString("name", client.username) orelse continue;
+                    json.addField(new_user, user_name);
+                    json.addField(new_root, new_user);
+
+                    // Create message object with text, text_len, and cleared info
+                    const new_message = json.initChild("message") orelse continue;
+                    if (json.getString(message_obj, "text")) |text| {
+                        const msg_text = json.initString("text", text) orelse continue;
+                        json.addField(new_message, msg_text);
+                    }
+                    const text_len = json.getNumber(message_obj, "text_len");
+                    const msg_len = json.initNumber("text_len", text_len) orelse continue;
+                    json.addField(new_message, msg_len);
+                    const msg_info = json.initNumber("info", 0) orelse continue; // Clear flags
+                    json.addField(new_message, msg_info);
+                    json.addField(new_root, new_message);
+
+                    const json_len = json.toString(new_root, &json_buffer);
+                    const json_str = json_buffer[0..@intCast(json_len)];
+
+                    // Encode and broadcast
+                    const frame = try encodeWebSocketFrame(allocator, json_str);
                     defer allocator.free(frame);
 
-                    for (clients.items) |*c| {
+                    for (clients.items, 0..) |*c, j| {
+                        // Skip sender unless SEND_BACK flag is set
+                        if (j == client_idx and (flags & WS_SEND_BACK == 0)) continue;
+
                         if (c.handshake_done) {
                             _ = c.stream.write(frame) catch |err| {
                                 std.debug.print("Failed to send to client (id={d}): {}\n", .{ c.id, err });
