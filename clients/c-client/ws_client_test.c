@@ -1,7 +1,7 @@
 #define WS_ENABLE_LOG_DEBUG
 #define WS_ENABLE_LOG_ERROR
 
-#include "../lib/ws_client_lib.h"
+#include "../../lib/ws_client_lib.h"
 
 void messageCallback(wsClient* client, time_t time, wsJson* root) {
     char buffer[WS_BUFFER_SIZE];

@@ -22,11 +22,11 @@ all: $(STATIC_LIB) $(SHARED_LIB) $(CLIENT_BIN) $(TEST_BIN) $(JSON_TEST_BIN) c-se
 c-server: $(STATIC_LIB)
 	@$(MAKE) -C $(SERVERS_DIR)/c-server
 
-$(CLIENT_BIN): $(CLIENTS_DIR)/ws_client.c
+$(CLIENT_BIN): $(CLIENTS_DIR)/c-client/ws_client.c
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(TEST_BIN): $(CLIENTS_DIR)/ws_client_test.c $(STATIC_LIB)
+$(TEST_BIN): $(CLIENTS_DIR)/c-client/ws_client_test.c $(STATIC_LIB)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $< -o $@ -L. -lclient
 
