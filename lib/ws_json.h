@@ -17,11 +17,13 @@ typedef enum {
     WS_JSON_NUMBER,
     WS_JSON_OBJECT,
     WS_JSON_BOOL,
+    WS_JSON_ARRAY,
+    WS_JSON_NULL,
 } wsJsonType;
 
 typedef struct wsJson {
     char key[WS_JSON_MAX_KEY_SIZE];
-    wsJsonType type; 
+    wsJsonType type;
     union {
         char stringValue[WS_JSON_MAX_VALUE_SIZE];
         double numberValue;
@@ -30,17 +32,25 @@ typedef struct wsJson {
             struct wsJson* children[WS_JSON_OBJECT_MAX_FIELDS];
             int32_t childCount;
         } object;
+        struct {
+            struct wsJson* elements[WS_JSON_OBJECT_MAX_FIELDS];
+            int32_t elementCount;
+        } array;
     };
 } wsJson;
 
-// Create Notes
+// Create functions
 wsJson* wsJsonInitChild(const char* key);
 wsJson* wsJsonInitString(const char* key, const char* val);
-wsJson* wsJsonInitNumber(const char* key, double val); 
+wsJson* wsJsonInitNumber(const char* key, double val);
 wsJson* wsJsonInitBool(const char* key, bool val);
+wsJson* wsJsonInitArray(const char* key);
+wsJson* wsJsonInitNull(const char* key);
 
 // Adds a new child to the json object
 void wsJsonAddField(wsJson* parent, wsJson* child);
+// Adds an element to a json array
+void wsJsonAddElement(wsJson* array, wsJson* element);
 int32_t wsJsonToString(wsJson* obj, char* out, size_t size);
 wsJson* wsStringToJson(const char** string);
 wsJson* wsJsonGet(wsJson* obj, const char* key);

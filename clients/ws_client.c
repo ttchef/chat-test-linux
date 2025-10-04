@@ -13,6 +13,46 @@
 // Size of buffers used for receiving and sending data
 #define BUFFER_SIZE 4096
 
+// Message flags matching server
+#define WS_NO_BROADCAST (1 << 0)
+#define WS_SEND_BACK (1 << 1)
+#define WS_CHANGE_USERNAME (1 << 2)
+
+/**
+ * Creates a JSON formatted message for the server
+ * Format: {"user": {"name": "username"},"message": {"text": "text","text_len": len,"info": flags}}
+ *
+ * @param username - The username to include
+ * @param text - The message text
+ * @param flags - Message flags (WS_NO_BROADCAST, WS_CHANGE_USERNAME, etc.)
+ * @param output - Buffer to write the JSON string to
+ * @param output_size - Size of the output buffer
+ * @return Length of the JSON string, or -1 on error
+ */
+int create_json_message(const char* username, const char* text, int flags, char* output, size_t output_size) {
+    // Remove newline from text if present
+    char clean_text[BUFFER_SIZE];
+    strncpy(clean_text, text, sizeof(clean_text) - 1);
+    clean_text[sizeof(clean_text) - 1] = '\0';
+
+    // Remove trailing newline/carriage return
+    size_t text_len = strlen(clean_text);
+    while (text_len > 0 && (clean_text[text_len - 1] == '\n' || clean_text[text_len - 1] == '\r')) {
+        clean_text[text_len - 1] = '\0';
+        text_len--;
+    }
+
+    int written = snprintf(output, output_size,
+        "{\"user\": {\"name\": \"%s\"},\"message\": {\"text\": \"%s\",\"text_len\": %zu,\"info\": %d}}",
+        username, clean_text, text_len, flags);
+
+    if (written < 0 || (size_t)written >= output_size) {
+        return -1;
+    }
+
+    return written;
+}
+
 /**
  * Encodes data into a WebSocket frame format with masking (required for client->server)
  * WebSocket protocol requires clients to mask all frames they send to the server
@@ -198,6 +238,8 @@ int main(int argc, char *argv[]) {
     char *name = NULL;
     // Flag indicating whether username was provided
     int name_type = 0;
+    // Current username (default to "Anonym" if not provided)
+    char current_username[256] = "Anonym";
     // Pointer to server hostname/IP
     char *host = NULL;
     // Pointer to server port
@@ -391,31 +433,46 @@ int main(int argc, char *argv[]) {
 
     // Send username to server if provided
     if (name_type && name) {
+        // Copy username to current_username
+        strncpy(current_username, name, sizeof(current_username) - 1);
+        current_username[sizeof(current_username) - 1] = '\0';
+
         // Buffer for the encoded frame
         unsigned char frame[BUFFER_SIZE];
-        // Buffer for the message to send
-        char msg[BUFFER_SIZE];
+        // Buffer for the JSON message
+        char json_msg[BUFFER_SIZE];
 
-        // Format the message with [ID] prefix (special protocol for setting username)
-        snprintf(msg, sizeof(msg), "[ID]%s", name);
-
-        // Encode the message into a WebSocket frame
-        int frame_len = ws_encode_frame(msg, strlen(msg), frame);
-        // Send the frame to the server
-        send(sockfd, frame, frame_len, 0);
+        // Create JSON message with WS_CHANGE_USERNAME flag
+        int json_len = create_json_message(current_username, "null",
+                                          WS_CHANGE_USERNAME | WS_NO_BROADCAST,
+                                          json_msg, sizeof(json_msg));
+        if (json_len > 0) {
+            // Encode the JSON message into a WebSocket frame
+            int frame_len = ws_encode_frame(json_msg, json_len, frame);
+            // Send the frame to the server
+            send(sockfd, frame, frame_len, 0);
+        }
     }
 
     // Send test message if in headless mode
     if (headless && test_msg) {
         // Buffer for the encoded frame
         unsigned char frame[BUFFER_SIZE];
-        // Encode the test message into a WebSocket frame
-        int frame_len = ws_encode_frame(test_msg, strlen(test_msg), frame);
-        // Send the frame to the server
-        send(sockfd, frame, frame_len, 0);
-        // Print what was sent
-        printf("Sent: %s", test_msg);
-        fflush(stdout);
+        // Buffer for the JSON message
+        char json_msg[BUFFER_SIZE];
+
+        // Create JSON message with current username
+        int json_len = create_json_message(current_username, test_msg, 0,
+                                          json_msg, sizeof(json_msg));
+        if (json_len > 0) {
+            // Encode the JSON message into a WebSocket frame
+            int frame_len = ws_encode_frame(json_msg, json_len, frame);
+            // Send the frame to the server
+            send(sockfd, frame, frame_len, 0);
+            // Print what was sent
+            printf("Sent: %s\n", test_msg);
+            fflush(stdout);
+        }
     }
 
     // Set up poll array for multiplexing stdin and socket
@@ -451,11 +508,21 @@ int main(int argc, char *argv[]) {
             int len = read(0, buffer, 255);
             // If we read something
             if (len > 0) {
-                // Encode the input into a WebSocket frame
-                unsigned char frame[BUFFER_SIZE];
-                int frame_len = ws_encode_frame(buffer, len, frame);
-                // Send the frame to the server
-                send(sockfd, frame, frame_len, 0);
+                // Null-terminate the input
+                buffer[len] = '\0';
+
+                // Buffer for the JSON message
+                char json_msg[BUFFER_SIZE];
+                // Create JSON message with current username
+                int json_len = create_json_message(current_username, buffer, 0,
+                                                  json_msg, sizeof(json_msg));
+                if (json_len > 0) {
+                    // Encode the JSON message into a WebSocket frame
+                    unsigned char frame[BUFFER_SIZE];
+                    int frame_len = ws_encode_frame(json_msg, json_len, frame);
+                    // Send the frame to the server
+                    send(sockfd, frame, frame_len, 0);
+                }
             }
         }
 

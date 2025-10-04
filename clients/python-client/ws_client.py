@@ -6,12 +6,18 @@ import sys
 from ctypes import c_int32, c_char_p, c_void_p, c_size_t, CFUNCTYPE, POINTER, Structure
 import time
 
-# Define the callback function type
-# typedef void (*wsMessageCallbackPFN)(wsClient* client, const char* message, const char* username, time_t time);
-MessageCallbackType = CFUNCTYPE(None, c_void_p, c_char_p, c_char_p, c_int32)
+# Define the callback function types
+# typedef void (*wsOnMessageCallbackJsonPFN)(wsClient* client, time_t time, wsJson* root);
+# typedef void (*wsOnMessageCallbackRawPFN)(wsClient* client, time_t time, const char* message);
+MessageCallbackJsonType = CFUNCTYPE(None, c_void_p, c_int32, c_void_p)
+MessageCallbackRawType = CFUNCTYPE(None, c_void_p, c_int32, c_char_p)
+
+# Callback types
+WS_MESSAGE_CALLBACK_JSON = 0
+WS_MESSAGE_CALLBACK_RAW = 1
 
 # Load the shared library
-lib_path = os.path.join(os.path.dirname(__file__), '../../libwsclient.so')
+lib_path = os.path.join(os.path.dirname(__file__), '../../bin/libwsclient.so')
 if not os.path.exists(lib_path):
     print(f"Error: libwsclient.so not found at {lib_path}")
     sys.exit(1)
@@ -31,9 +37,9 @@ lib.wsSendMessage.restype = c_int32
 lib.wsSendMessageN.argtypes = [c_void_p, c_char_p, c_size_t]
 lib.wsSendMessageN.restype = c_int32
 
-# int32_t wsSetMessageCallback(wsClient* client, wsMessageCallbackPFN functionPtr);
-lib.wsSetMessageCallback.argtypes = [c_void_p, MessageCallbackType]
-lib.wsSetMessageCallback.restype = c_int32
+# int32_t wsSetOnMessageCallback(wsClient* client, wsOnMessageCallbackPFN functionPtr, wsOnMessageCallbackType type);
+lib.wsSetOnMessageCallback.argtypes = [c_void_p, c_void_p, c_int32]
+lib.wsSetOnMessageCallback.restype = c_int32
 
 # int32_t wsClientListen(wsClient* client);
 lib.wsClientListen.argtypes = [c_void_p]
@@ -80,7 +86,7 @@ class WSClient:
         return result == WS_OK
 
     def send_message(self, message):
-        """Send a message to the server
+        """Send a message to the server in JSON format
 
         Args:
             message: Message string to send
@@ -88,9 +94,20 @@ class WSClient:
         Returns:
             True on success, False on failure
         """
-        if isinstance(message, str):
-            message = message.encode('utf-8')
-        result = lib.wsSendMessage(ctypes.byref(self.client), message)
+        import json
+        # Build JSON message matching the expected format
+        json_msg = json.dumps({
+            "user": {"name": self.username.decode('utf-8')},
+            "message": {
+                "text": message if isinstance(message, str) else message.decode('utf-8'),
+                "text_len": len(message if isinstance(message, str) else message.decode('utf-8')),
+                "info": 0
+            }
+        })
+
+        if isinstance(json_msg, str):
+            json_msg = json_msg.encode('utf-8')
+        result = lib.wsSendMessage(ctypes.byref(self.client), json_msg)
         return result == WS_OK
 
     def send_message_n(self, message, n):
@@ -108,23 +125,38 @@ class WSClient:
         result = lib.wsSendMessageN(ctypes.byref(self.client), message, n)
         return result == WS_OK
 
-    def set_message_callback(self, callback):
+    def set_message_callback(self, callback, use_json=False):
         """Set callback function for incoming messages
 
         Args:
-            callback: Function with signature (client, message, username, timestamp)
+            callback: Function with signature (client, message, timestamp) for raw mode
+                     or (client, json_ptr, timestamp) for JSON mode
+            use_json: If True, use JSON callback mode
 
         Returns:
             True on success, False on failure
         """
-        def wrapper(client_ptr, message, username, timestamp):
-            msg_str = message.decode('utf-8') if message else ""
-            user_str = username.decode('utf-8') if username else ""
-            callback(self, msg_str, user_str, timestamp)
+        if use_json:
+            def wrapper(client_ptr, timestamp, json_ptr):
+                # For JSON mode, just pass the pointer - user must handle it
+                callback(self, json_ptr, timestamp)
+
+            self.callback = MessageCallbackJsonType(wrapper)
+            callback_type = WS_MESSAGE_CALLBACK_JSON
+        else:
+            def wrapper(client_ptr, timestamp, message):
+                msg_str = message.decode('utf-8') if message else ""
+                callback(self, msg_str, timestamp)
+
+            self.callback = MessageCallbackRawType(wrapper)
+            callback_type = WS_MESSAGE_CALLBACK_RAW
 
         # Keep reference to prevent garbage collection
-        self.callback = MessageCallbackType(wrapper)
-        result = lib.wsSetMessageCallback(ctypes.byref(self.client), self.callback)
+        result = lib.wsSetOnMessageCallback(
+            ctypes.byref(self.client),
+            ctypes.cast(self.callback, c_void_p),
+            callback_type
+        )
         return result == WS_OK
 
     def listen(self):
@@ -173,13 +205,13 @@ def main():
     # Create client instance
     client = WSClient(ip=args.host, port=args.port, username=args.name)
 
-    # Define message callback
-    def on_message(client, message, username, timestamp):
+    # Define message callback (raw mode)
+    def on_message(client, message, timestamp):
         print(f"{message}", end='')
         sys.stdout.flush()
 
-    # Set callback
-    if not client.set_message_callback(on_message):
+    # Set callback (use raw mode for simplicity)
+    if not client.set_message_callback(on_message, use_json=False):
         print("Failed to set message callback")
         return 1
 

@@ -245,6 +245,12 @@ int main(int argc, char *argv[]) {
                     printf("Server recived Message: %s\n", payload);
                     wsJson* root = wsStringToJson(&cp);
 
+                    // If JSON parsing failed, skip this message
+                    if (!root) {
+                        printf("Failed to parse JSON message, skipping...\n");
+                        continue;
+                    }
+
                     // If we successfully decoded a payload
                     if (payload_len > 0) {
                         wsJson* user = wsJsonGet(root, "user");
