@@ -16,7 +16,7 @@ COPY lib/ ./lib/
 
 # Build the server
 WORKDIR /app/servers/c-server
-RUN gcc -o ws_server ws_server.c ../../lib/ws_json.c ../../lib/ws_client_lib.c -I../../lib -DWS_ENABLE_LOG_DEBUG -DWS_ENABLE_LOG_ERROR
+RUN gcc -o ws_server ws_server.c ../../lib/ws_json.c ../../lib/ws_client_lib.c -I../../lib -DWS_ENABLE_LOG_DEBUG -DWS_ENABLE_LOG_ERROR -D_GNU_SOURCE
 
 # Create minimal runtime image
 FROM debian:bookworm-slim

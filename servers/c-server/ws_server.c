@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
                     // If we successfully decoded a payload
                     if (payload_len > 0) {
                         wsJson* user = wsJsonGet(root, "user");
-                        char* name = wsJsonGetString(user, "name");
+                        const char* name = wsJsonGetString(user, "name");
 
                         wsJson* message = wsJsonGet(root, "message");
                         const char* text = wsJsonGetString(message, "text");
